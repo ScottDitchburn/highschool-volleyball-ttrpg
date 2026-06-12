@@ -10,6 +10,7 @@ import { SkillsStep } from './steps/SkillsStep';
 import { YearExperienceStep } from './steps/YearExperienceStep';
 import { AbilitiesStep } from './steps/AbilitiesStep';
 import { ReviewStep } from './steps/ReviewStep';
+import { generateRandomSeed } from './rng/seeded';
 
 // -- Step definitions --
 
@@ -28,6 +29,20 @@ type StepIndex = 0 | 1 | 2 | 3 | 4 | 5;
 
 function NameEntry({ onStart }: { onStart: () => void }) {
   const { character, dispatch } = useCharacter();
+  const [seeded, setSeeded] = useState(false);
+  const [seed, setSeed] = useState('');
+
+  const seedReady = !seeded || seed.trim().length > 0;
+  const canStart = character.name.trim().length > 0 && seedReady;
+
+  function handleStart() {
+    if (!canStart) return;
+    if (seeded) {
+      dispatch({ type: 'START_SEEDED_RUN', seed: seed.trim() });
+    }
+    onStart();
+  }
+
   return (
     <div className="flex flex-col items-center justify-center min-h-screen bg-court p-6 gap-8">
       <div className="text-center">
@@ -52,12 +67,56 @@ function NameEntry({ onStart }: { onStart: () => void }) {
           />
         </label>
 
+        {/* Seeded Run */}
+        <div className="flex flex-col gap-2 rounded-lg border border-charcoal-700 bg-charcoal-800/40 p-3">
+          <label className="flex items-center gap-2 cursor-pointer select-none">
+            <input
+              type="checkbox"
+              checked={seeded}
+              onChange={(e) => setSeeded(e.target.checked)}
+              className="w-4 h-4 accent-orange-500"
+            />
+            <span className="text-sm font-semibold text-charcoal-200">Seeded Run</span>
+            <span className="text-xs text-charcoal-500">— same seed always rolls the same character</span>
+          </label>
+
+          {seeded && (
+            <div className="flex flex-col gap-1.5">
+              <div className="flex items-center gap-2">
+                <input
+                  type="text"
+                  value={seed}
+                  onChange={(e) => setSeed(e.target.value)}
+                  placeholder="Enter a seed (e.g. karasuno-2026)"
+                  className="flex-1 min-w-0 bg-charcoal-900 border border-charcoal-600 rounded-lg px-3 py-2
+                             text-charcoal-100 placeholder:text-charcoal-600 focus:outline-none
+                             focus:border-orange-600 focus:ring-1 focus:ring-orange-600 font-mono text-sm"
+                  maxLength={64}
+                />
+                <button
+                  type="button"
+                  onClick={() => setSeed(generateRandomSeed())}
+                  className="btn-ghost text-xs py-2 px-3 shrink-0"
+                  aria-label="Generate a random seed"
+                  title="Generate a random seed"
+                >
+                  🎲 Random
+                </button>
+              </div>
+              <p className="text-xs text-charcoal-500">
+                Every roll is determined by this seed and locked — no rerolling. You still assign
+                stats and pick abilities freely.
+              </p>
+            </div>
+          )}
+        </div>
+
         <button
-          onClick={onStart}
-          disabled={!character.name.trim()}
+          onClick={handleStart}
+          disabled={!canStart}
           className="btn-primary disabled:opacity-40 disabled:cursor-not-allowed"
         >
-          Start Building
+          {seeded ? 'Start Seeded Run' : 'Start Building'}
         </button>
       </div>
 

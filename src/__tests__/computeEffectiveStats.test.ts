@@ -54,6 +54,8 @@ function makeChar(
     apBudget: makeBudget(),
     selectedAbilities: abilities,
     levelUpHistory: [],
+    seed: null,
+    seeded: false,
   };
 }
 

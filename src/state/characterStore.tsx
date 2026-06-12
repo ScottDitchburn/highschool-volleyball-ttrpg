@@ -30,6 +30,9 @@ import {
 } from '../types';
 
 import { ABILITY_MAP } from '../data/abilities';
+import {
+  seededPhysicalRoll, seededSkillChip, seededYear, seededYearBonus, seededExperienceRoll,
+} from '../rng/seeded';
 
 // ---------------------------------------------------------------------------
 // UID generator (crypto.randomUUID with fallback)
@@ -73,6 +76,8 @@ export const INITIAL_CHARACTER: Character = {
   apBudget: DEFAULT_AP_BUDGET,
   selectedAbilities: [],
   levelUpHistory: [],
+  seed: null,
+  seeded: false,
 };
 
 // ---------------------------------------------------------------------------
@@ -94,6 +99,7 @@ export type CharacterAction =
   | { type: 'SET_ABILITY_TIER'; uid: string; tier: number }
   | { type: 'SET_ABILITY_CHOOSER'; uid: string; effectIndex: number; choice: SkillStat | SkillStat[] }
   | { type: 'LEVEL_UP'; teamsPlayed: number; heightGainCm: number; apGained: number }
+  | { type: 'START_SEEDED_RUN'; seed: string }
   | { type: 'IMPORT_CHARACTER'; character: Character }
   | { type: 'RESET' };
 
@@ -105,6 +111,41 @@ function characterReducer(state: Character, action: CharacterAction): Character 
   switch (action.type) {
     case 'SET_NAME':
       return { ...state, name: action.name };
+
+    case 'START_SEEDED_RUN': {
+      const seed = action.seed;
+      const rollA = seededPhysicalRoll(seed, 0);
+      const rollB = seededPhysicalRoll(seed, 1);
+      const skillRolls = Array.from({ length: 10 }, (_, i) => {
+        const c = seededSkillChip(seed, i);
+        return { dice: c.dice, value: c.value };
+      });
+      const year = seededYear(seed);
+      const yb = seededYearBonus(seed, year);
+      const exp = experienceFromRoll(seededExperienceRoll(seed).roll);
+      const base = state.apBudget.base;
+      const total = base + yb.bonus + exp.bonus;
+      const apBudget = {
+        ...DEFAULT_AP_BUDGET,
+        base, yearBonus: yb.bonus, experienceBonus: exp.bonus,
+        levelUpGains: 0, spent: 0, total, remaining: total,
+      };
+      return {
+        ...state,
+        seed, seeded: true,
+        physicalPool: { rollA: { dice: rollA.dice, total: rollA.total }, rollB: { dice: rollB.dice, total: rollB.total } },
+        physical: null,
+        reaches: null,
+        skillPool: { rolls: skillRolls },
+        skills: null,
+        yearRoll: year,
+        schoolYear: year,
+        experience: exp,
+        apBudget,
+        selectedAbilities: [],
+        levelUpHistory: [],
+      };
+    }
 
     case 'SET_PHYSICAL_ROLL_A':
       return { ...state, physicalPool: { ...state.physicalPool, rollA: action.roll } };

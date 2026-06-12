@@ -26,6 +26,8 @@ function makeChar(overrides: Partial<Character> = {}): Character {
     skills: null, yearRoll: null, experience: null,
     apBudget: makeBudget(),
     selectedAbilities: [], levelUpHistory: [],
+    seed: null,
+    seeded: false,
     ...overrides,
   };
 }

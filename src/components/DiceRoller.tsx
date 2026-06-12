@@ -28,6 +28,8 @@ export interface DiceRollerProps {
   initialValue?: number;
   /** Dense layout for tight grids (e.g. the 10 skill chips) */
   compact?: boolean;
+  /** Seeded run: show the rolled value read-only; hide roll/manual controls. */
+  locked?: boolean;
 }
 
 /** Generate a cryptographically random integer in [1, sides] */
@@ -93,6 +95,7 @@ export function DiceRoller({
   initialDice,
   initialValue,
   compact = false,
+  locked = false,
 }: DiceRollerProps) {
   const id = useId();
 
@@ -207,6 +210,10 @@ export function DiceRoller({
           )}
         </div>
 
+        {locked ? (
+          <span className="text-[0.65rem] text-charcoal-500 flex items-center gap-1" title="Seeded run — locked">🔒 seeded</span>
+        ) : (
+          <>
         {/* Controls row: small Roll + narrow manual */}
         <div className="flex items-center gap-1.5">
           <button
@@ -245,6 +252,8 @@ export function DiceRoller({
           <span id={`${id}-error`} className="text-xs text-red-400" role="alert">
             {manualError}
           </span>
+        )}
+          </>
         )}
       </div>
     );
@@ -295,6 +304,9 @@ export function DiceRoller({
         </div>
       )}
 
+      {locked ? (
+        <span className="text-xs text-charcoal-500 flex items-center gap-1" title="Seeded run — locked">🔒 Seeded — locked</span>
+      ) : (
       <div className="flex items-center gap-3 flex-wrap">
         <button
           type="button"
@@ -335,6 +347,7 @@ export function DiceRoller({
           )}
         </div>
       </div>
+      )}
     </div>
   );
 }

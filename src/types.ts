@@ -209,6 +209,11 @@ export interface Character {
 
   /** History of level-up events */
   levelUpHistory: LevelUpRecord[];
+
+  /** Seeded run: the seed string (null when not a seeded run) */
+  seed: string | null;
+  /** True when this is a seeded run (rolls locked & derived from the seed) */
+  seeded: boolean;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

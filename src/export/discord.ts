@@ -47,6 +47,9 @@ export function buildDiscordExport(
   lines.push('╔══════════════════════════════════════╗');
   lines.push(`  ${name}`);
   lines.push(`  ${year}   |   Height: ${heightStr}`);
+  if (character.seeded && character.seed) {
+    lines.push(`  Seeded run · seed: ${character.seed}`);
+  }
   lines.push('──────────────────────────────────────');
 
   // Reaches

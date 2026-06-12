@@ -12,7 +12,7 @@ interface Props {
 export function CharacterSheet({ collapsible = false }: Props) {
   const [collapsed, setCollapsed] = React.useState(false);
   const { character, effectiveStats, derivedReaches } = useCharacter();
-  const { name, schoolYear, physical, apBudget, selectedAbilities } = character;
+  const { name, schoolYear, physical, apBudget, selectedAbilities, seeded, seed } = character;
 
   if (collapsible && collapsed) {
     return (
@@ -46,6 +46,11 @@ export function CharacterSheet({ collapsible = false }: Props) {
           {name || <span className="text-charcoal-500 italic">Unnamed Player</span>}
         </div>
         <div className="text-charcoal-400">{yearLabel}</div>
+        {seeded && seed && (
+          <div className="mt-1 inline-flex items-center gap-1 text-[0.65rem] font-mono px-1.5 py-0.5 rounded bg-orange-900/30 text-orange-300 border border-orange-800" title={`Seeded run — seed: ${seed}`}>
+            🔒 seed: <span className="truncate max-w-[8rem]">{seed}</span>
+          </div>
+        )}
       </div>
 
       {/* Physical */}

@@ -31,6 +31,7 @@ function rollSkillChip(): { value: number; dice: [number, number, number, number
 export function SkillsStep() {
   const { character, dispatch } = useCharacter();
   const { skillPool, skills } = character;
+  const seeded = character.seeded;
 
   // Local chip values and dice -- initialise from store
   const [chipValues, setChipValues] = useState<(number | null)[]>(() =>
@@ -151,14 +152,18 @@ export function SkillsStep() {
       <div className="flex flex-col gap-2">
         <div className="flex items-center justify-between">
           <span className="text-sm font-bold text-charcoal-300">Individual Chip Rolls</span>
-          <button
-            type="button"
-            onClick={handleRerollAll}
-            className="btn-ghost text-xs py-1 px-3"
-            aria-label="Roll all ten skill chips at once"
-          >
-            Roll All 10
-          </button>
+          {seeded ? (
+            <span className="text-xs text-charcoal-500 flex items-center gap-1" title="Seeded run — rolls locked">🔒 Seeded</span>
+          ) : (
+            <button
+              type="button"
+              onClick={handleRerollAll}
+              className="btn-ghost text-xs py-1 px-3"
+              aria-label="Roll all ten skill chips at once"
+            >
+              Roll All 10
+            </button>
+          )}
         </div>
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2">
           {Array.from({ length: POOL_SIZE }, (_, i) => (
@@ -174,6 +179,7 @@ export function SkillsStep() {
                 sides={4}
                 mode="average"
                 compact
+                locked={seeded}
                 onResult={makeHandleResult(i)}
                 initialDice={chipDiceArrays[i] ?? undefined}
                 initialValue={chipValues[i] ?? undefined}
@@ -197,6 +203,7 @@ export function SkillsStep() {
           chipValues={chipValues}
           rerollLabel="Reset"
           sortDescending
+          locked={seeded}
         />
       </div>
 

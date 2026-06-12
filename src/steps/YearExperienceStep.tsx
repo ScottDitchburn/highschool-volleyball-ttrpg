@@ -23,6 +23,7 @@ function BudgetRow({ label, value, accent = false }: { label: string; value: num
 export function YearExperienceStep() {
   const { character, dispatch } = useCharacter();
   const { yearRoll, experience, apBudget } = character;
+  const seeded = character.seeded;
 
   const [bonusRoll, setBonusRoll] = useState<number | null>(null);
   const [pendingYear, setPendingYear] = useState<YearRoll | null>(null);
@@ -131,8 +132,10 @@ export function YearExperienceStep() {
               <button
                 key={y}
                 type="button"
-                onClick={() => handleManualYear(y)}
+                onClick={() => !seeded && handleManualYear(y)}
+                disabled={seeded}
                 className={`px-4 py-2 rounded-lg text-sm font-semibold border transition-colors
+                  disabled:opacity-50 disabled:cursor-not-allowed
                   ${active
                     ? 'bg-orange-600 border-orange-500 text-white'
                     : 'bg-charcoal-800 border-charcoal-600 text-charcoal-300 hover:border-orange-600 hover:text-orange-300'
@@ -157,6 +160,7 @@ export function YearExperienceStep() {
           label="School Year (1d3)"
           onResult={handleYearRoll}
           initialValue={yearRoll ?? undefined}
+          locked={seeded}
         />
 
         {yearLabel && (
@@ -224,6 +228,7 @@ export function YearExperienceStep() {
               dispatch({ type: 'SET_YEAR_ROLL', roll: yearRoll, yearBonus: config.baseBonus + value });
             }}
             initialValue={committedBonusValue}
+            locked={seeded}
           />
           <div className="text-sm text-charcoal-400">
             Current bonus AP: <span className="text-orange-400 font-bold">{apBudget.yearBonus}</span>
@@ -245,6 +250,7 @@ export function YearExperienceStep() {
           label="Previous Experience (2d8)"
           onResult={handleExpRoll}
           initialValue={experience?.roll ?? undefined}
+          locked={seeded}
         />
 
         {experience && (

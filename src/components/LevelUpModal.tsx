@@ -1,9 +1,10 @@
 // src/components/LevelUpModal.tsx
 // Guided level-up flow: teams played → height roll → confirm → apply.
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { useCharacter } from '../state/characterStore';
 import { DiceRoller } from './DiceRoller';
+import { seededLevelUpHeight } from '../rng/seeded';
 import type { SchoolYear } from '../types';
 
 interface Props {
@@ -35,6 +36,16 @@ export function LevelUpModal({ onClose, onGoToAbilities }: Props) {
   // Computed AP gain from teams played
   const apGained = 3 + 2 * teamsPlayed;
   const nextYear = Math.min(currentYear + 1, 3) as SchoolYear;
+  const seededHeight = character.seeded && character.seed
+    ? seededLevelUpHeight(character.seed, nextYear)
+    : null;
+
+  // In a seeded run the height growth is determined by the seed, not rolled.
+  useEffect(() => {
+    if (modalStep === 'height-roll' && seededHeight && heightGainCm === null) {
+      setHeightGainCm(seededHeight.cm);
+    }
+  });
 
   // Step 1: teams played
   const handleTeamsConfirm = useCallback(() => {
@@ -202,6 +213,8 @@ export function LevelUpModal({ onClose, onGoToAbilities }: Props) {
                 mode="single"
                 label="Height Growth Roll (1d20)"
                 onResult={handleHeightRoll}
+                locked={!!seededHeight}
+                initialValue={seededHeight?.die}
               />
 
               {heightGainCm !== null && (

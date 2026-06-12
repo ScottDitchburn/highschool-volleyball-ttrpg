@@ -146,6 +146,8 @@ const FULL_CHARACTER: Character = {
     },
   ],
   levelUpHistory: [],
+    seed: null,
+    seeded: false,
 };
 
 /** Seed localStorage so CharacterProvider hydrates this character on mount. */

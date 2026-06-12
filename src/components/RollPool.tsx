@@ -43,6 +43,8 @@ export interface RollPoolProps {
   rerollLabel?: string;
   /** Display unassigned chips sorted largest -> smallest (assignment indices unaffected) */
   sortDescending?: boolean;
+  /** Seeded run: hide the reroll/reset control (assignment stays enabled). */
+  locked?: boolean;
 }
 
 interface ChipState {
@@ -63,6 +65,7 @@ export function RollPool({
   disabled = false,
   rerollLabel = 'Re-roll All',
   sortDescending = false,
+  locked = false,
 }: RollPoolProps) {
   // id reserved for future aria-labelledby use
 
@@ -170,15 +173,19 @@ export function RollPool({
           <span className="text-xs font-bold uppercase tracking-wide text-charcoal-400">
             Pool ({unassignedChips.length} unassigned)
           </span>
-          <button
-            type="button"
-            onClick={onRerollAll}
-            disabled={disabled}
-            className="btn-ghost text-xs py-1 px-3 disabled:opacity-40 disabled:cursor-not-allowed"
-            aria-label={`${rerollLabel} pool values`}
-          >
-            {rerollLabel}
-          </button>
+          {locked ? (
+            <span className="text-[0.65rem] text-charcoal-500 flex items-center gap-1" title="Seeded run — rolls locked">🔒 seeded</span>
+          ) : (
+            <button
+              type="button"
+              onClick={onRerollAll}
+              disabled={disabled}
+              className="btn-ghost text-xs py-1 px-3 disabled:opacity-40 disabled:cursor-not-allowed"
+              aria-label={`${rerollLabel} pool values`}
+            >
+              {rerollLabel}
+            </button>
+          )}
         </div>
 
         <div

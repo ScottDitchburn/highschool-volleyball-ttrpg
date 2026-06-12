@@ -38,6 +38,7 @@ const PHYSICAL_SLOTS: SlotDef[] = [
 export function PhysicalStep() {
   const { character, dispatch } = useCharacter();
   const { physicalPool, physical } = character;
+  const seeded = character.seeded;
 
   // Local state: chip values and per-chip dice arrays
   const [chipValues, setChipValues] = useState<(number | null)[]>([
@@ -181,6 +182,7 @@ export function PhysicalStep() {
           onResult={handleResultA}
           initialDice={chipDice[0] ?? undefined}
           initialValue={chipValues[0] ?? undefined}
+          locked={seeded}
         />
         <DiceRoller
           numDice={3}
@@ -190,6 +192,7 @@ export function PhysicalStep() {
           onResult={handleResultB}
           initialDice={chipDice[1] ?? undefined}
           initialValue={chipValues[1] ?? undefined}
+          locked={seeded}
         />
       </div>
 
@@ -211,6 +214,7 @@ export function PhysicalStep() {
           onRerollAll={handleRerollAll}
           assignments={assignments}
           chipValues={chipValues}
+          locked={seeded}
         />
       </div>
 

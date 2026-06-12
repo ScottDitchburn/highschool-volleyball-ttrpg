@@ -50,6 +50,11 @@ export function PrintSheet({ character, effectiveStats, derived }: Props) {
         <div style={{ color: '#555', fontSize: '14px', marginTop: '2px' }}>
           Haikyuu: Gauntlet RPG v2 — {yearLabel(schoolYear)}
         </div>
+        {character.seeded && character.seed && (
+          <div style={{ color: '#888', fontSize: '11px', marginTop: '3px' }}>
+            🔒 Seeded run · seed: <span style={{ fontFamily: 'monospace', color: '#555' }}>{character.seed}</span>
+          </div>
+        )}
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
