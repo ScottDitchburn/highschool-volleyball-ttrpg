@@ -1,6 +1,6 @@
 // App.tsx -- Stepped wizard shell with persistent live character-sheet panel.
 // Navigation is internal wizard state; NO router dependency.
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { CharacterProvider, useCharacter } from './state/characterStore';
 import { CharacterSheet } from './components/CharacterSheet';
 import { SaveControls } from './components/SaveControls';
@@ -124,6 +124,17 @@ function Wizard() {
   const [step, setStep] = useState<StepIndex>(0);
   const [sheetOpen, setSheetOpen] = useState(false);
   const { character } = useCharacter();
+
+  // Listen for level-up navigation requests from ReviewStep
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const detail = (e as CustomEvent<{ stepId: string }>).detail;
+      const idx = STEPS.findIndex((s) => s.id === detail.stepId);
+      if (idx !== -1) setStep(idx as StepIndex);
+    };
+    window.addEventListener('haikyu:goto-step', handler);
+    return () => window.removeEventListener('haikyu:goto-step', handler);
+  }, []);
 
   const StepComponent = STEPS[step].component;
   const isFirst = step === 0;

@@ -88,22 +88,37 @@
 }
 
 /* ── Print stylesheet ──────────────────────────────────────────────────── */
+
+/* Screen: hide the print-only sheet */
+.print-only {
+  display: none !important;
+}
+
 @media print {
-  /* Force light background for printing */
+  /* Light background for printing */
   html, body {
     background: #fff !important;
     color: #000 !important;
   }
 
-  /* Hide navigation chrome in print */
+  /* Hide all app chrome */
   .no-print,
   .wizard-nav,
-  .step-indicator {
+  .step-indicator,
+  header,
+  aside,
+  nav {
     display: none !important;
   }
 
-  /* Show the character sheet at full width */
-  .character-sheet {
+  /* Show print sheet, hide screen content inside ReviewStep */
+  .print-only {
+    display: block !important;
+  }
+
+  /* Full-width print sheet */
+  .character-sheet,
+  #print-sheet {
     width: 100% !important;
     max-width: 100% !important;
     border: none !important;
