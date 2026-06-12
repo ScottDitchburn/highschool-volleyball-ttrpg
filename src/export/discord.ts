@@ -4,6 +4,7 @@
 import type { Character, SkillStats, DerivedReaches } from '../types';
 import { SKILL_STAT_NAMES } from '../types';
 import { ABILITY_MAP } from '../data/abilities';
+import { computeAPBudget } from '../engine/apEngine';
 
 const PAD = 14; // label column width
 
@@ -85,7 +86,7 @@ export function buildDiscordExport(
   lines.push('──────────────────────────────────────');
 
   // AP
-  const ap = character.apBudget;
+  const ap = computeAPBudget(character); // live spent/remaining (stored apBudget is not kept in sync)
   lines.push(`  AP  ${ap.spent} spent / ${ap.total} total  (${ap.remaining} remaining)`);
 
   // Abilities

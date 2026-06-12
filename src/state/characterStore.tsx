@@ -30,6 +30,7 @@ import {
 } from '../types';
 
 import { ABILITY_MAP } from '../data/abilities';
+import { computeSpent } from '../engine/apEngine';
 import {
   seededPhysicalRoll, seededSkillChip, seededYear, seededYearBonus, seededExperienceRoll,
 } from '../rng/seeded';
@@ -107,7 +108,7 @@ export type CharacterAction =
 // Reducer
 // ---------------------------------------------------------------------------
 
-function characterReducer(state: Character, action: CharacterAction): Character {
+function baseCharacterReducer(state: Character, action: CharacterAction): Character {
   switch (action.type) {
     case 'SET_NAME':
       return { ...state, name: action.name };
@@ -434,6 +435,17 @@ const CharacterContext = createContext<CharacterContextValue | null>(null);
 // ---------------------------------------------------------------------------
 // Provider
 // ---------------------------------------------------------------------------
+
+// Keep apBudget.spent/remaining in sync with the selected abilities after every
+// action, so all readers (live sheet, Year/Exp step, Print & Discord exports)
+// show correct AP without each recomputing.
+function characterReducer(state: Character, action: CharacterAction): Character {
+  const next = baseCharacterReducer(state, action);
+  const spent = computeSpent(next);
+  const remaining = next.apBudget.total - spent;
+  if (next.apBudget.spent === spent && next.apBudget.remaining === remaining) return next;
+  return { ...next, apBudget: { ...next.apBudget, spent, remaining } };
+}
 
 function initCharacter(): Character {
   return loadSaved() ?? INITIAL_CHARACTER;

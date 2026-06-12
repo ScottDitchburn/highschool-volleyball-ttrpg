@@ -7,6 +7,7 @@
 import type { Character, SkillStats, DerivedReaches } from '../types';
 import { SKILL_STAT_NAMES } from '../types';
 import { ABILITY_MAP } from '../data/abilities';
+import { computeAPBudget } from '../engine/apEngine';
 
 interface Props {
   character: Character;
@@ -26,7 +27,8 @@ function yearLabel(y: number): string {
 }
 
 export function PrintSheet({ character, effectiveStats, derived }: Props) {
-  const { name, schoolYear, physical, apBudget, selectedAbilities, levelUpHistory } = character;
+  const { name, schoolYear, physical, selectedAbilities, levelUpHistory } = character;
+  const apBudget = computeAPBudget(character); // live spent/remaining
 
   return (
     <div
