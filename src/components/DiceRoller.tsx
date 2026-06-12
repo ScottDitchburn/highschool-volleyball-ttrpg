@@ -5,12 +5,10 @@
 //   numDice        — how many dice to roll
 //   sides          — faces per die (e.g. 10, 4, 8)
 //   mode           — "sum" | "average" | "single"
-//                    "sum"     → total of all dice (used for 3d10)
-//                    "average" → mean, rounded to 2dp (used for 4d4)
-//                    "single"  → single-die pass-through (1d3, 1d20, etc.)
 //   label          — optional heading (e.g. "Roll A")
 //   onResult       — callback(value: number, individualDice: number[])
 //   disabled       — disables roll button
+//   compact        — dense layout for tight grids (no card chrome, small dice)
 // ─────────────────────────────────────────────────────────────────────────────
 
 import React, { useState, useCallback, useId } from 'react';
@@ -28,6 +26,8 @@ export interface DiceRollerProps {
   initialDice?: number[];
   /** Initial computed value */
   initialValue?: number;
+  /** Dense layout for tight grids (e.g. the 10 skill chips) */
+  compact?: boolean;
 }
 
 /** Generate a cryptographically random integer in [1, sides] */
@@ -42,19 +42,18 @@ function computeValue(dice: number[], mode: DiceMode): number {
   if (mode === 'sum' || mode === 'single') {
     return dice.reduce((a, b) => a + b, 0);
   }
-  // average — round to 2 decimal places
   const avg = dice.reduce((a, b) => a + b, 0) / dice.length;
   return Math.round(avg * 100) / 100;
 }
 
-/** Simple pip count display for d4–d10 ranges */
-function DieFace({ value, sides, animating }: { value: number; sides: number; animating: boolean }) {
+/** Simple value display for d4–d10 ranges */
+function DieFace({
+  value, sides, animating, size = 'md',
+}: { value: number; sides: number; animating: boolean; size?: 'md' | 'sm' }) {
   const base =
     'inline-flex items-center justify-center rounded-lg font-black select-none transition-all duration-200';
+  const sizeClass = size === 'sm' ? 'w-7 h-7 text-xs' : 'w-10 h-10 text-base';
 
-  const sizeClass = 'w-10 h-10 text-base';
-
-  // During animation show a rotating "?" placeholder
   if (animating) {
     return (
       <span
@@ -67,8 +66,7 @@ function DieFace({ value, sides, animating }: { value: number; sides: number; an
     );
   }
 
-  // Color by result quality (low=cool blue tones, high=warm orange)
-  const pct = (value - 1) / (sides - 1); // 0..1
+  const pct = (value - 1) / (sides - 1);
   const bgClass =
     pct >= 0.8 ? 'bg-orange-600 text-white' :
     pct >= 0.5 ? 'bg-orange-800 text-orange-200' :
@@ -94,6 +92,7 @@ export function DiceRoller({
   disabled = false,
   initialDice,
   initialValue,
+  compact = false,
 }: DiceRollerProps) {
   const id = useId();
 
@@ -104,7 +103,6 @@ export function DiceRoller({
   const [manualActive, setManualActive] = useState(false);
   const [manualError, setManualError] = useState('');
 
-  // Legal range for the result value
   const minResult = mode === 'average' ? 1 : numDice;
   const maxResult = mode === 'average' ? sides : numDice * sides;
 
@@ -115,7 +113,6 @@ export function DiceRoller({
     setManualError('');
     setAnimating(true);
 
-    // Short animation then set real values
     setTimeout(() => {
       const dice = Array.from({ length: numDice }, () => rollDie(sides));
       const value = computeValue(dice, mode);
@@ -143,7 +140,6 @@ export function DiceRoller({
         setManualError(`Must be ${minResult}–${maxResult}`);
         return;
       }
-      // Validate step for average mode (0.25 steps)
       if (mode === 'average') {
         const steps = Math.round(parsed * 4);
         if (Math.abs(steps / 4 - parsed) > 0.001) {
@@ -152,7 +148,6 @@ export function DiceRoller({
         }
       }
 
-      // Valid manual entry — clear dice display, use manual value
       setManualActive(true);
       setRolledDice([]);
       setComputedValue(parsed);
@@ -161,11 +156,85 @@ export function DiceRoller({
     [mode, minResult, maxResult, onResult]
   );
 
-  const modeLabel =
-    mode === 'sum'     ? 'Sum' :
-    mode === 'average' ? 'Avg' :
-                         'Result';
+  const modeLabel = mode === 'sum' ? 'Sum' : mode === 'average' ? 'Avg' : 'Result';
+  const diceSize = compact ? 'sm' : 'md';
 
+  // ── Compact layout (dense grids like the 10 skill chips) ────────────────────
+  if (compact) {
+    return (
+      <div
+        className="flex flex-col gap-1.5"
+        role="group"
+        aria-label={label ? `${label} dice roller` : 'Dice roller'}
+      >
+        {/* Dice + Avg on one row */}
+        <div className="flex items-center justify-between gap-1.5 min-h-[1.9rem]">
+          <div className="flex items-center gap-1 flex-wrap">
+            {animating ? (
+              Array.from({ length: numDice }).map((_, i) => (
+                <DieFace key={i} value={1} sides={sides} animating size={diceSize} />
+              ))
+            ) : manualActive ? (
+              <span className="text-charcoal-500 text-xs italic">manual</span>
+            ) : rolledDice.length > 0 ? (
+              rolledDice.map((v, i) => (
+                <DieFace key={i} value={v} sides={sides} animating={false} size={diceSize} />
+              ))
+            ) : (
+              <span className="text-charcoal-600 text-xs italic">—</span>
+            )}
+          </div>
+          {computedValue !== null && (
+            <span className="text-lg font-black text-orange-400 leading-none shrink-0" title={`${modeLabel}`}>
+              {mode === 'average' ? computedValue.toFixed(2) : computedValue}
+            </span>
+          )}
+        </div>
+
+        {/* Controls row: small Roll + narrow manual */}
+        <div className="flex items-center gap-1.5">
+          <button
+            type="button"
+            onClick={handleRoll}
+            disabled={disabled || animating}
+            className="btn-primary text-xs py-1 px-2.5 disabled:opacity-40 disabled:cursor-not-allowed shrink-0"
+            aria-label={`Roll ${numDice}d${sides}`}
+          >
+            {animating ? '…' : 'Roll'}
+          </button>
+          <label htmlFor={`${id}-manual`} className="sr-only">
+            Manual entry ({minResult}–{maxResult}{mode === 'average' ? ', step 0.25' : ''})
+          </label>
+          <input
+            id={`${id}-manual`}
+            type="number"
+            value={manualInput}
+            onChange={handleManualChange}
+            min={minResult}
+            max={maxResult}
+            step={mode === 'average' ? 0.25 : 1}
+            placeholder={`${minResult}–${maxResult}`}
+            title={`Manual entry: ${minResult}–${maxResult}${mode === 'average' ? ', step 0.25' : ''}`}
+            disabled={disabled}
+            className={`min-w-0 flex-1 bg-charcoal-800 border rounded px-1.5 py-1 text-xs text-charcoal-100
+                        placeholder:text-charcoal-600 focus:outline-none focus:ring-1
+                        disabled:opacity-40 disabled:cursor-not-allowed
+                        ${manualError
+                          ? 'border-red-500 focus:ring-red-500'
+                          : 'border-charcoal-600 focus:border-orange-600 focus:ring-orange-600'}`}
+            aria-describedby={manualError ? `${id}-error` : undefined}
+          />
+        </div>
+        {manualError && (
+          <span id={`${id}-error`} className="text-xs text-red-400" role="alert">
+            {manualError}
+          </span>
+        )}
+      </div>
+    );
+  }
+
+  // ── Default (full) layout ───────────────────────────────────────────────────
   return (
     <div
       className="card flex flex-col gap-3"
@@ -177,13 +246,10 @@ export function DiceRoller({
           <span className="text-sm font-bold text-charcoal-300 uppercase tracking-wide">
             {label}
           </span>
-          <span className="text-xs text-charcoal-500">
-            {numDice}d{sides}
-          </span>
+          <span className="text-xs text-charcoal-500">{numDice}d{sides}</span>
         </div>
       )}
 
-      {/* Dice faces row */}
       <div className="flex items-center gap-2 flex-wrap min-h-[2.75rem]">
         {animating ? (
           Array.from({ length: numDice }).map((_, i) => (
@@ -204,8 +270,7 @@ export function DiceRoller({
         )}
       </div>
 
-      {/* Total / Average display */}
-      {(computedValue !== null) && (
+      {computedValue !== null && (
         <div className="flex items-baseline gap-2">
           <span className="text-xs text-charcoal-500 uppercase tracking-wide">{modeLabel}:</span>
           <span className="text-2xl font-black text-orange-400">
@@ -214,7 +279,6 @@ export function DiceRoller({
         </div>
       )}
 
-      {/* Controls */}
       <div className="flex items-center gap-3 flex-wrap">
         <button
           type="button"
@@ -226,7 +290,6 @@ export function DiceRoller({
           {animating ? 'Rolling…' : `Roll ${numDice}d${sides}`}
         </button>
 
-        {/* Manual entry */}
         <div className="flex flex-col gap-0.5 flex-1 min-w-[7rem]">
           <label htmlFor={`${id}-manual`} className="text-xs text-charcoal-500">
             Manual ({minResult}–{maxResult}{mode === 'average' ? ', step 0.25' : ''})
@@ -246,8 +309,7 @@ export function DiceRoller({
                         disabled:opacity-40 disabled:cursor-not-allowed w-full
                         ${manualError
                           ? 'border-red-500 focus:ring-red-500'
-                          : 'border-charcoal-600 focus:border-orange-600 focus:ring-orange-600'
-                        }`}
+                          : 'border-charcoal-600 focus:border-orange-600 focus:ring-orange-600'}`}
             aria-describedby={manualError ? `${id}-error` : undefined}
           />
           {manualError && (

@@ -160,14 +160,20 @@ export function SkillsStep() {
             Roll All 10
           </button>
         </div>
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2">
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2">
           {Array.from({ length: POOL_SIZE }, (_, i) => (
-            <div key={i} className="card p-2 flex flex-col gap-1">
-              <span className="text-xs text-charcoal-500 font-bold uppercase">Chip {i + 1}</span>
+            <div
+              key={i}
+              className="rounded-lg border border-charcoal-700 bg-charcoal-800/40 p-2 flex flex-col gap-1.5"
+            >
+              <span className="text-[0.65rem] text-charcoal-500 font-bold uppercase tracking-wide leading-none">
+                Chip {i + 1}
+              </span>
               <DiceRoller
                 numDice={4}
                 sides={4}
                 mode="average"
+                compact
                 onResult={makeHandleResult(i)}
                 initialDice={chipDiceArrays[i] ?? undefined}
                 initialValue={chipValues[i] ?? undefined}
