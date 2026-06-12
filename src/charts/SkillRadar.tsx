@@ -7,6 +7,8 @@ import { SKILL_STAT_NAMES, type SkillStats } from '../types';
 
 interface Props {
   stats: SkillStats;
+  /** Light-background colour scheme for the Print/PDF sheet. */
+  print?: boolean;
 }
 
 const W = 360;
@@ -15,7 +17,10 @@ const CX = W / 2;
 const CY = H / 2;
 const R = 108; // radius at full scale
 
-export function SkillRadar({ stats }: Props) {
+export function SkillRadar({ stats, print = false }: Props) {
+  const gridColor  = print ? '#cfcfcf' : 'rgba(67,67,67,0.55)';
+  const scaleColor = print ? '#9a9a9a' : '#6b6b6b';
+  const nameColor  = print ? '#333333' : '#bdbdbd';
   const labels = SKILL_STAT_NAMES;
   const n = labels.length;
 
@@ -50,7 +55,7 @@ export function SkillRadar({ stats }: Props) {
           key={lvl}
           points={polyPoints(lvl)}
           fill="none"
-          stroke="rgba(67,67,67,0.55)"
+          stroke={gridColor}
           strokeWidth="0.75"
         />
       ))}
@@ -59,7 +64,7 @@ export function SkillRadar({ stats }: Props) {
       {labels.map((_, i) => {
         const [x, y] = pointAt(i, maxScale);
         return (
-          <line key={i} x1={CX} y1={CY} x2={x} y2={y} stroke="rgba(67,67,67,0.55)" strokeWidth="0.75" />
+          <line key={i} x1={CX} y1={CY} x2={x} y2={y} stroke={gridColor} strokeWidth="0.75" />
         );
       })}
 
@@ -67,7 +72,7 @@ export function SkillRadar({ stats }: Props) {
       {ringLevels.map((lvl) => {
         const [, y] = pointAt(0, lvl);
         return (
-          <text key={`s${lvl}`} x={CX + 3} y={y + 3} fontSize="8" fill="#6b6b6b">
+          <text key={`s${lvl}`} x={CX + 3} y={y + 3} fontSize="8" fill={scaleColor}>
             {lvl}
           </text>
         );
@@ -90,7 +95,7 @@ export function SkillRadar({ stats }: Props) {
         const anchor = cos > 0.3 ? 'start' : cos < -0.3 ? 'end' : 'middle';
         return (
           <g key={`lab${i}`}>
-            <text x={lx} y={ly} fontSize="10" fontWeight="700" textAnchor={anchor} fill="#bdbdbd">
+            <text x={lx} y={ly} fontSize="10" fontWeight="700" textAnchor={anchor} fill={nameColor}>
               {l}
             </text>
             <text x={lx} y={ly + 11} fontSize="9" textAnchor={anchor} fill="#E8741E" fontWeight="800">

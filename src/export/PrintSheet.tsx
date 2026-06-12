@@ -9,6 +9,7 @@ import { SKILL_STAT_NAMES } from '../types';
 import { ABILITY_MAP } from '../data/abilities';
 import { computeAPBudget } from '../engine/apEngine';
 import { cmDual } from '../utils/units';
+import { SkillRadar } from '../charts/SkillRadar';
 
 interface Props {
   character: Character;
@@ -222,6 +223,11 @@ export function PrintSheet({ character, effectiveStats, derived }: Props) {
               </table>
             ) : (
               <p style={{ color: '#aaa', fontStyle: 'italic' }}>Not assigned</p>
+            )}
+            {effectiveStats && (
+              <div style={{ maxWidth: '280px', margin: '6px auto 0' }}>
+                <SkillRadar stats={effectiveStats} print />
+              </div>
             )}
           </section>
 
