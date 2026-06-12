@@ -7,7 +7,6 @@ import { DiceRoller } from '../components/DiceRoller';
 import { RollPool, type SlotDef } from '../components/RollPool';
 import { DistributionChart } from '../charts/DistributionChart';
 import {
-  get3d10Pmf,
   heightCmPmf,
   verticalCmPmf,
 } from '../charts/distributions';
@@ -26,7 +25,6 @@ function rollPhysical(): PhysicalRoll {
 }
 
 // Static PMFs computed once
-const rollPmf     = get3d10Pmf();
 const heightPmf   = heightCmPmf();
 const verticalPmf = verticalCmPmf();
 
@@ -245,25 +243,11 @@ export function PhysicalStep() {
       {/* Distribution charts */}
       <div className="flex flex-col gap-4">
         <DistributionChart
-          pmf={rollPmf}
-          markerValue={heightRoll}
-          label="Height Roll Distribution (3d10)"
-          unit=""
-          markerLabel={heightRoll !== null ? 'Roll ' + heightRoll : undefined}
-        />
-        <DistributionChart
           pmf={heightPmf}
           markerValue={heightCm}
           label="Height Distribution (cm)"
           unit=" cm"
           markerLabel={heightCm !== null ? heightCm + ' cm' : undefined}
-        />
-        <DistributionChart
-          pmf={rollPmf}
-          markerValue={verticalRoll}
-          label="Vertical Roll Distribution (3d10)"
-          unit=""
-          markerLabel={verticalRoll !== null ? 'Roll ' + verticalRoll : undefined}
         />
         <DistributionChart
           pmf={verticalPmf}
