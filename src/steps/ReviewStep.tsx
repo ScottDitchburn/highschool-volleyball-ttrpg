@@ -9,6 +9,7 @@ import { computeAPBudget } from '../engine/apEngine';
 import { LevelUpModal } from '../components/LevelUpModal';
 import { PrintSheet } from '../export/PrintSheet';
 import { buildDiscordExport } from '../export/discord';
+import { SkillRadar } from '../charts/SkillRadar';
 
 // ── helpers ─────────────────────────────────────────────────────────────────
 
@@ -207,6 +208,7 @@ export function ReviewStep() {
             <SectionHead>Skill Stats</SectionHead>
             {effectiveStats ? (
               <div>
+                <SkillRadar stats={effectiveStats} />
                 {SKILL_STAT_NAMES.map((stat) => {
                   const base = character.skills?.[stat];
                   const eff = effectiveStats[stat];
