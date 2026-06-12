@@ -81,13 +81,15 @@ export function AbilityCard({
   onTierChange,
   onChooserChange,
 }: AbilityCardProps) {
-  const { prereqResults, eligible, maxedOut, affordable } = evaluation;
+  const { prereqResults, eligible, maxedOut, affordable, needsChooser } = evaluation;
   const hasTiers = (ability.tiers?.length ?? 0) > 0;
   const isRepeatable = ability.repeatable === true || (ability.maxTimes ?? 1) > 1;
   const purchaseCount = instances.length;
 
-  // Can we add another instance?
-  const canAddAnother = eligible && affordable && !maxedOut;
+  // Can we add another instance? Block while an existing copy still needs its
+  // stat choice — otherwise unallocated bonuses let you stack past a prereq
+  // (e.g. Quick Learner's "No Stat 3.75+") before the effect is applied.
+  const canAddAnother = eligible && affordable && !maxedOut && !needsChooser;
   // Unselected single-purchase ability
   const canSelectFirst = canAddAnother && !isSelected;
 
@@ -105,8 +107,6 @@ export function AbilityCard({
       ? 'border-charcoal-700 opacity-60'
       : 'border-charcoal-600 hover:border-charcoal-500';
 
-  // needsChooser: any instance missing a chooser
-  const needsChooser = evaluation.needsChooser;
 
   return (
     <div
@@ -187,7 +187,7 @@ export function AbilityCard({
                   }`}
                 aria-label={purchaseCount > 0 ? `Add another ${ability.name}` : `Select ${ability.name}`}
               >
-                {!eligible ? 'Locked' : maxedOut ? 'Maxed' : !affordable ? 'No AP' : purchaseCount > 0 ? '+ Add' : 'Select'}
+                {!eligible ? 'Locked' : maxedOut ? 'Maxed' : !affordable ? 'No AP' : needsChooser ? 'Choose…' : purchaseCount > 0 ? '+ Add' : 'Select'}
               </button>
             </div>
           )}
