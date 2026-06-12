@@ -369,6 +369,7 @@ export function computeDerived(character: Character): DerivedReaches | null {
 
   const verticalCm = character.physical.verticalCm;
   return {
+    effectiveHeightCm,
     standingReachCm: 1.3 * effectiveHeightCm,
     spikingReachCm:  1.3 * effectiveHeightCm + verticalCm + spikingDelta,
     blockingReachCm: 1.3 * effectiveHeightCm + blockingCoef * verticalCm,

@@ -38,6 +38,8 @@ export interface PhysicalAttributes {
 // ── Derived reaches ───────────────────────────────────────────────────────────
 
 export interface DerivedReaches {
+  /** Effective height in cm (base + ability height bonuses e.g. Growth Spurt) */
+  effectiveHeightCm: number;
   /** 1.3 × Height */
   standingReachCm: number;
   /** 1.3 × Height + Vertical */
@@ -252,6 +254,7 @@ export function computeReaches(
   blockingCoef = 0.85
 ): DerivedReaches {
   return {
+    effectiveHeightCm: heightCm,
     standingReachCm: standingReach(heightCm),
     spikingReachCm:  spikingReach(heightCm, verticalCm),
     blockingReachCm: blockingReach(heightCm, verticalCm, blockingCoef),

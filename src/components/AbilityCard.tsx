@@ -358,7 +358,9 @@ function TierSelector({ ability, selectedTier, canAffordTier, onTierChange }: Ti
                 onTierChange(tierValue);
               }}
               disabled={!selectable && !isCurrentTier}
-              title={`${tier.label} — ${cost} AP cumulative`}
+              title={!canAfford && !isCurrentTier
+                ? `${tier.label} — ${cost} AP cumulative (not enough AP remaining)`
+                : `${tier.label} — ${cost} AP cumulative`}
               className={`text-xs px-2 py-1 rounded border transition-colors
                 ${isCurrentTier
                   ? 'border-orange-500 bg-orange-500/20 text-orange-300 font-bold'

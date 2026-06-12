@@ -93,6 +93,7 @@ const FULL_CHARACTER: Character = {
     verticalCm:  81,   // 45 + 3*12
   },
   reaches: {
+    effectiveHeightCm: 186,
     standingReachCm: 241.8,  // 1.3 * 186
     spikingReachCm:  322.8,  // 241.8 + 81
     blockingReachCm: 310.65, // 241.8 + 0.85*81

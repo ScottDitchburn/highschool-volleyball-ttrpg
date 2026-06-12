@@ -378,6 +378,7 @@ function computeSimDerived(character: Character): DerivedReaches | null {
 
   const v = character.physical.verticalCm;
   return {
+    effectiveHeightCm: h,
     standingReachCm: 1.3 * h,
     spikingReachCm: 1.3 * h + v + spikeDelta,
     blockingReachCm: 1.3 * h + coef * v,

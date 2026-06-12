@@ -23,7 +23,7 @@ describe('tier selectable after selection', () => {
     const instance: SelectedAbility = { uid: 'u1', abilityId: 'block-breaker', tier: 1, chooserSelections: {} };
     // Selected => single-purchase ability is "maxed" (eligible=false) — the bug trigger
     const evaluation: AbilityEvaluation = {
-      prereqResults: [{ met: true, label: 'Power 3.25+ (have 3.50)' }],
+      prereqResults: [{ met: true, label: 'Power 3.25+ (have 3.50)', prereq: { kind: 'stat', stat: 'Power', min: 3.25 } }],
       eligible: false, maxedOut: true, affordable: true, needsChooser: false, tierCost: 3,
     };
     const onTierChange = vi.fn();

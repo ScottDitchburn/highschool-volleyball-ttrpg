@@ -56,7 +56,16 @@ export function CharacterSheet({ collapsible = false }: Props) {
         <div className="grid grid-cols-2 gap-x-3 gap-y-1 text-charcoal-200">
           <span className="text-charcoal-400">Height</span>
           <span className="font-mono text-right">
-            {physical ? `${physical.heightCm.toFixed(1)} cm` : '—'}
+            {physical ? (
+              <>
+                {(derivedReaches?.effectiveHeightCm ?? physical.heightCm).toFixed(1)} cm
+                {derivedReaches && derivedReaches.effectiveHeightCm > physical.heightCm && (
+                  <span className="text-orange-400 ml-1">
+                    (+{(derivedReaches.effectiveHeightCm - physical.heightCm).toFixed(1)})
+                  </span>
+                )}
+              </>
+            ) : '—'}
           </span>
           <span className="text-charcoal-400">Vertical</span>
           <span className="font-mono text-right">
