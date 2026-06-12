@@ -8,7 +8,7 @@ import {
   spikingReachPmf,
   blockingReachPmf,
   percentileOf,
-  histogramPmf,
+  smoothReachDensity,
   type PmfPoint,
 } from '../charts/distributions';
 
@@ -28,7 +28,7 @@ function ReachRow({ label, formula, valueCm, pmf }: ReachRowProps) {
   // Percentile from the raw (exact) PMF; chart from a whole-cm binned PMF so the
   // curve is smooth rather than spiky.
   const pct = valueCm !== null ? percentileOf(valueCm, pmf) : null;
-  const chartPmf = useMemo(() => histogramPmf(pmf), [pmf]);
+  const chartPmf = useMemo(() => smoothReachDensity(pmf), [pmf]);
 
   return (
     <div className="card flex flex-col gap-3">

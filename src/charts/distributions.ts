@@ -183,6 +183,37 @@ export function histogramPmf(pmf: PmfPoint[]): PmfPoint[] {
   return buckets.map((prob, i) => ({ value: Math.round(start + (i + 0.5) * binWidth), prob }));
 }
 
+/**
+ * Gaussian kernel-smoothed density on a regular grid. Unlike a hard histogram,
+ * this has no aliasing "beat" spikes when the bin width and the discrete value
+ * spacing are incommensurate (which is what produced the random tall bars on the
+ * reach charts). Returns a clean, smooth envelope. Renormalised to sum to 1.
+ */
+export function smoothReachDensity(
+  pmf: PmfPoint[],
+  step = 2,
+  bandwidth = 5,
+): PmfPoint[] {
+  if (pmf.length === 0) return [];
+  const minV = pmf[0].value;
+  const maxV = pmf[pmf.length - 1].value;
+  const start = Math.floor(minV / step) * step;
+  const end = Math.ceil(maxV / step) * step;
+  const out: PmfPoint[] = [];
+  let total = 0;
+  for (let x = start; x <= end + 1e-9; x += step) {
+    let d = 0;
+    for (const { value, prob } of pmf) {
+      const z = (x - value) / bandwidth;
+      d += prob * Math.exp(-0.5 * z * z);
+    }
+    out.push({ value: Math.round(x), prob: d });
+    total += d;
+  }
+  if (total > 0) for (const p of out) p.prob /= total;
+  return out;
+}
+
 export function binPmfToIntegers(pmf: PmfPoint[]): PmfPoint[] {
   const buckets = new Map<number, number>();
   for (const { value, prob } of pmf) {
