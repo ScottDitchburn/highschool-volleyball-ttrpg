@@ -130,7 +130,7 @@ export function AbilityCard({
               ? <span className="text-xs px-1.5 py-0.5 rounded bg-blue-900/40 text-blue-300 border border-blue-700">Uncapped</span>
               : <span className="text-xs px-1.5 py-0.5 rounded bg-blue-900/40 text-blue-300 border border-blue-700">×{ability.maxTimes} max</span>
             )}
-            {maxedOut && (
+            {maxedOut && isRepeatable && (
               <span className="text-xs px-1.5 py-0.5 rounded bg-charcoal-700 text-charcoal-500">
                 Maxed
               </span>
@@ -173,12 +173,23 @@ export function AbilityCard({
               </button>
             )
           ) : (
-            /* Repeatable ability: show count if any purchased */
-            purchaseCount > 0 ? (
-              <span className="text-xs font-semibold text-orange-400 font-mono">
-                ×{purchaseCount} purchased
-              </span>
-            ) : null
+            <div className="flex items-center gap-2">
+              {purchaseCount > 0 && (
+                <span className="text-xs font-semibold text-orange-400 font-mono">×{purchaseCount}</span>
+              )}
+              <button
+                onClick={canAddAnother ? onSelect : undefined}
+                disabled={!canAddAnother}
+                className={`text-xs px-2 py-1 rounded border transition-colors
+                  ${canAddAnother
+                    ? 'border-orange-600 text-orange-400 hover:bg-orange-600 hover:text-white'
+                    : 'border-charcoal-700 text-charcoal-600 cursor-not-allowed'
+                  }`}
+                aria-label={purchaseCount > 0 ? `Add another ${ability.name}` : `Select ${ability.name}`}
+              >
+                {!eligible ? 'Locked' : maxedOut ? 'Maxed' : !affordable ? 'No AP' : purchaseCount > 0 ? '+ Add' : 'Select'}
+              </button>
+            </div>
           )}
         </div>
       </div>
@@ -208,37 +219,12 @@ export function AbilityCard({
           instanceIndex={instIdx}
           totalInstances={purchaseCount}
           apRemaining={apRemaining}
-          eligible={eligible}
           onDeselect={() => onDeselect(inst.uid)}
           onTierChange={(tier) => onTierChange(inst.uid, tier)}
           onChooserChange={(effectIndex, choice) => onChooserChange(inst.uid, effectIndex, choice)}
         />
       ))}
 
-      {/* "Add another" button for repeatable abilities */}
-      {isRepeatable && (
-        <button
-          onClick={canAddAnother ? onSelect : undefined}
-          disabled={!canAddAnother}
-          className={`text-xs px-3 py-1.5 rounded border transition-colors w-full text-center
-            ${canAddAnother
-              ? 'border-orange-600 text-orange-400 hover:bg-orange-600/20'
-              : 'border-charcoal-700 text-charcoal-600 cursor-not-allowed'
-            }`}
-          aria-label={`Add another ${ability.name}`}
-        >
-          {!eligible
-            ? `Locked — ${ability.name}`
-            : maxedOut
-              ? `Maxed (${purchaseCount}/${ability.maxTimes})`
-              : !affordable
-                ? `No AP (need ${nextPurchaseCost} AP)`
-                : purchaseCount === 0
-                  ? `Select — ${nextPurchaseCost} AP`
-                  : `Add another — ${nextPurchaseCost} AP`
-          }
-        </button>
-      )}
     </div>
   );
 }
@@ -253,7 +239,6 @@ interface InstanceControlsProps {
   instanceIndex: number;
   totalInstances: number;
   apRemaining: number;
-  eligible: boolean;
   onDeselect: () => void;
   onTierChange: (tier: number) => void;
   onChooserChange: (effectIndex: number, choice: SkillStat | SkillStat[]) => void;
@@ -265,7 +250,6 @@ function InstanceControls({
   instanceIndex,
   totalInstances,
   apRemaining,
-  eligible,
   onDeselect,
   onTierChange,
   onChooserChange,
@@ -280,31 +264,21 @@ function InstanceControls({
     return extra <= apRemaining;
   }
 
-  // For single-purchase non-repeatable abilities, don't wrap in an extra box — controls are inline.
-  // For repeatable abilities with multiple instances, wrap each in a labeled box.
-  const label = isRepeatable && totalInstances > 1
-    ? `Purchase ${instanceIndex + 1}`
-    : null;
-
   return (
     <div className={`flex flex-col gap-2 ${isRepeatable ? 'bg-charcoal-800/40 rounded-lg p-2' : ''}`}>
-      {label && (
+      {isRepeatable && (
         <div className="flex items-center justify-between">
-          <span className="text-xs font-semibold text-charcoal-400 uppercase tracking-wide">{label}</span>
+          <span className="text-xs font-semibold text-charcoal-400 uppercase tracking-wide">
+            {totalInstances > 1 ? `Purchase ${instanceIndex + 1}` : 'Purchased'}
+          </span>
           <button
             onClick={onDeselect}
             className="text-xs px-2 py-0.5 rounded border border-charcoal-600 text-charcoal-400 hover:border-red-600 hover:text-red-400 transition-colors"
-            aria-label={`Remove purchase ${instanceIndex + 1} of ${ability.name}`}
+            aria-label={`Remove ${totalInstances > 1 ? `purchase ${instanceIndex + 1} of ` : ''}${ability.name}`}
           >
             Remove
           </button>
         </div>
-      )}
-
-      {/* Remove button for non-repeatable single instance (shown inline) */}
-      {!isRepeatable && (
-        /* Already rendered in header — don't duplicate */
-        null
       )}
 
       {/* Tier selector */}
@@ -314,7 +288,6 @@ function InstanceControls({
           selectedTier={instance.tier}
           canAffordTier={canAffordTier}
           onTierChange={onTierChange}
-          eligible={eligible}
         />
       )}
 
@@ -339,19 +312,6 @@ function InstanceControls({
         );
       })}
 
-      {/* Remove button for repeatable single-instance (first purchase shown without label) */}
-      {isRepeatable && totalInstances === 1 && (
-        <div className="flex justify-end">
-          <button
-            onClick={onDeselect}
-            className="text-xs px-2 py-0.5 rounded border border-charcoal-600 text-charcoal-400 hover:border-red-600 hover:text-red-400 transition-colors"
-            aria-label={`Remove ${ability.name}`}
-          >
-            Remove
-          </button>
-        </div>
-      )}
-
       {/* Tier cost summary */}
       {hasTiers && (
         <div className="text-xs text-charcoal-500">
@@ -371,10 +331,9 @@ interface TierSelectorProps {
   selectedTier: number;
   canAffordTier: (tierIndex: number) => boolean;
   onTierChange: (tier: number) => void;
-  eligible: boolean;
 }
 
-function TierSelector({ ability, selectedTier, canAffordTier, onTierChange, eligible }: TierSelectorProps) {
+function TierSelector({ ability, selectedTier, canAffordTier, onTierChange }: TierSelectorProps) {
   const tiers = ability.tiers!;
 
   return (
@@ -386,7 +345,10 @@ function TierSelector({ ability, selectedTier, canAffordTier, onTierChange, elig
           const cost = cumulativeCost(ability, tierValue);
           const isCurrentTier = selectedTier === tierValue;
           const canAfford = canAffordTier(tierValue);
-          const selectable = eligible && canAfford;
+          // Tier is changeable whenever affordable. Do NOT gate on the ability's
+          // new-purchase eligibility: a single-purchase ability becomes "maxed"
+          // (eligible=false) once selected, which previously froze its tiers.
+          const selectable = canAfford;
 
           return (
             <button
