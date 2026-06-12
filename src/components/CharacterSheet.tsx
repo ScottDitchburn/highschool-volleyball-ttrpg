@@ -93,7 +93,7 @@ export function CharacterSheet({ collapsible = false }: Props) {
               <React.Fragment key={stat}>
                 <span className="text-charcoal-400">{stat}</span>
                 <span className="font-mono text-right text-charcoal-200">
-                  {effectiveStats[stat].toFixed(2)}
+                  {effectiveStats[stat]?.toFixed(2) ?? '—'}
                 </span>
               </React.Fragment>
             ))}

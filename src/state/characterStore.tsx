@@ -294,6 +294,10 @@ function characterReducer(state: Character, action: CharacterAction): Character 
  */
 export function computeEffectiveStats(character: Character): SkillStats | null {
   if (!character.skills) return null;
+  // Effective stats are only meaningful once ALL ten skills are assigned.
+  // A partial skills object would yield undefined stat values and crash consumers
+  // (which all guard with `if (effectiveStats)` expecting a complete block).
+  if (!SKILL_STAT_NAMES.every((s) => typeof character.skills![s] === 'number')) return null;
 
   // Start from a mutable copy of base stats
   const stats: SkillStats = { ...character.skills };
