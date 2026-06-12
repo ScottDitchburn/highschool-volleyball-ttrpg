@@ -11,7 +11,7 @@
 //   compact        — dense layout for tight grids (no card chrome, small dice)
 // ─────────────────────────────────────────────────────────────────────────────
 
-import React, { useState, useCallback, useId } from 'react';
+import React, { useState, useCallback, useId, useEffect, useRef } from 'react';
 
 export type DiceMode = 'sum' | 'average' | 'single';
 
@@ -102,6 +102,22 @@ export function DiceRoller({
   const [manualInput, setManualInput] = useState('');
   const [manualActive, setManualActive] = useState(false);
   const [manualError, setManualError] = useState('');
+
+  // Sync display when initial props change externally (e.g. "Roll All 10" or a
+  // restored character). The internal state is seeded from props only on mount,
+  // so without this an external value update would not refresh this roller.
+  const externalSig = `${initialValue ?? ''}|${(initialDice ?? []).join(',')}`;
+  const prevSigRef = useRef(externalSig);
+  useEffect(() => {
+    if (prevSigRef.current === externalSig) return;
+    prevSigRef.current = externalSig;
+    if (animating) return;
+    setRolledDice(initialDice ?? []);
+    setComputedValue(initialValue ?? null);
+    setManualActive(false);
+    setManualInput('');
+    setManualError('');
+  }, [externalSig, initialDice, initialValue, animating]);
 
   const minResult = mode === 'average' ? 1 : numDice;
   const maxResult = mode === 'average' ? sides : numDice * sides;

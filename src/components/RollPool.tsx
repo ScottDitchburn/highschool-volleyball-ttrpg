@@ -39,6 +39,10 @@ export interface RollPoolProps {
   /** null means the chip hasn't been rolled yet */
   chipValues: (number | null)[];
   disabled?: boolean;
+  /** Label for the reroll/reset button (default "Re-roll All") */
+  rerollLabel?: string;
+  /** Display unassigned chips sorted largest -> smallest (assignment indices unaffected) */
+  sortDescending?: boolean;
 }
 
 interface ChipState {
@@ -57,6 +61,8 @@ export function RollPool({
   assignments,
   chipValues,
   disabled = false,
+  rerollLabel = 'Re-roll All',
+  sortDescending = false,
 }: RollPoolProps) {
   // id reserved for future aria-labelledby use
 
@@ -73,6 +79,9 @@ export function RollPool({
   const unassignedChips: ChipState[] = chipValues
     .map((v, i) => (v !== null && !assignedChipIndices.has(i) ? { index: i, value: v } : null))
     .filter((c): c is ChipState => c !== null);
+  if (sortDescending) {
+    unassignedChips.sort((a, b) => b.value - a.value);
+  }
 
   const handleChipClick = useCallback(
     (chipIndex: number) => {
@@ -166,9 +175,9 @@ export function RollPool({
             onClick={onRerollAll}
             disabled={disabled}
             className="btn-ghost text-xs py-1 px-3 disabled:opacity-40 disabled:cursor-not-allowed"
-            aria-label="Re-roll all pool values"
+            aria-label={`${rerollLabel} pool values`}
           >
-            Re-roll All
+            {rerollLabel}
           </button>
         </div>
 

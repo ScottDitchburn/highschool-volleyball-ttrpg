@@ -195,6 +195,8 @@ export function SkillsStep() {
           onRerollAll={handleRerollAll}
           assignments={assignments}
           chipValues={chipValues}
+          rerollLabel="Reset"
+          sortDescending
         />
       </div>
 
@@ -211,39 +213,7 @@ export function SkillsStep() {
         )}
       </div>
 
-      {/* Assigned stats summary table */}
-      {assignedCount > 0 && (
-        <div className="card">
-          <h3 className="text-sm font-bold text-charcoal-300 mb-3 uppercase tracking-wide">
-            Assigned Stats
-          </h3>
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-            {SKILL_STAT_NAMES.map((stat) => {
-              const chipIdx = assignments[stat];
-              const value   = chipIdx !== undefined ? chipValues[chipIdx] : null;
-              return (
-                <div
-                  key={stat}
-                  className={
-                    value !== null
-                      ? 'flex items-center justify-between px-3 py-2 rounded-lg bg-charcoal-800 border border-charcoal-600'
-                      : 'flex items-center justify-between px-3 py-2 rounded-lg bg-charcoal-900 border border-charcoal-800 border-dashed'
-                  }
-                >
-                  <span className="text-sm text-charcoal-300">{stat}</span>
-                  <span className={
-                    value !== null
-                      ? 'text-base font-black text-orange-400'
-                      : 'text-base font-black text-charcoal-600'
-                  }>
-                    {value !== null ? value.toFixed(2) : '--'}
-                  </span>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      )}
+
     </div>
   );
 }
