@@ -1,0 +1,116 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ── Design tokens ─────────────────────────────────────────────────────── */
+:root {
+  --color-primary:       #E8741E;
+  --color-primary-dark:  #c2591a;
+  --color-primary-light: #fb923c;
+  --color-bg:            #121212;
+  --color-surface:       #1f1f1f;
+  --color-surface-2:     #383838;
+  --color-border:        #434343;
+  --color-text:          #fafaf8;
+  --color-text-muted:    #a4a4a4;
+  --color-court-line:    rgba(232, 116, 30, 0.12);
+}
+
+/* ── Base reset ────────────────────────────────────────────────────────── */
+@layer base {
+  html {
+    font-family: Inter, system-ui, sans-serif;
+    background-color: var(--color-bg);
+    color: var(--color-text);
+    font-size: 16px;
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    font-weight: 700;
+    letter-spacing: -0.01em;
+    line-height: 1.2;
+  }
+
+  * {
+    box-sizing: border-box;
+  }
+}
+
+/* ── Component utilities ───────────────────────────────────────────────── */
+@layer components {
+  /* Court-line background motif */
+  .bg-court {
+    background-color: var(--color-bg);
+    background-image: var(--color-court-line, repeating-linear-gradient(
+      90deg,
+      transparent,
+      transparent 59px,
+      rgba(232, 116, 30, 0.08) 59px,
+      rgba(232, 116, 30, 0.08) 60px
+    ));
+  }
+
+  /* Primary button */
+  .btn-primary {
+    @apply bg-orange-600 hover:bg-orange-700 active:bg-orange-800 text-white font-bold
+           px-5 py-2.5 rounded-lg transition-colors duration-150 focus:outline-none
+           focus:ring-2 focus:ring-orange-500 focus:ring-offset-2 focus:ring-offset-charcoal-950;
+  }
+
+  /* Ghost button */
+  .btn-ghost {
+    @apply border border-charcoal-600 hover:border-orange-600 hover:text-orange-400
+           text-charcoal-300 font-semibold px-5 py-2.5 rounded-lg transition-colors
+           duration-150 focus:outline-none focus:ring-2 focus:ring-orange-500
+           focus:ring-offset-2 focus:ring-offset-charcoal-950;
+  }
+
+  /* Card surface */
+  .card {
+    @apply bg-charcoal-900 border border-charcoal-700 rounded-xl p-4;
+  }
+
+  /* Step badge */
+  .step-badge-active {
+    @apply bg-orange-600 text-white font-bold w-8 h-8 rounded-full flex items-center
+           justify-center text-sm;
+  }
+  .step-badge-done {
+    @apply bg-charcoal-700 text-orange-400 font-bold w-8 h-8 rounded-full flex items-center
+           justify-center text-sm;
+  }
+  .step-badge-pending {
+    @apply bg-charcoal-800 text-charcoal-500 font-bold w-8 h-8 rounded-full flex items-center
+           justify-center text-sm;
+  }
+}
+
+/* ── Print stylesheet ──────────────────────────────────────────────────── */
+@media print {
+  /* Force light background for printing */
+  html, body {
+    background: #fff !important;
+    color: #000 !important;
+  }
+
+  /* Hide navigation chrome in print */
+  .no-print,
+  .wizard-nav,
+  .step-indicator {
+    display: none !important;
+  }
+
+  /* Show the character sheet at full width */
+  .character-sheet {
+    width: 100% !important;
+    max-width: 100% !important;
+    border: none !important;
+    box-shadow: none !important;
+  }
+
+  /* Page breaks */
+  .page-break-before { page-break-before: always; }
+  .page-break-after  { page-break-after:  always; }
+}
