@@ -159,6 +159,30 @@ export function blockingReachPmf(coef = 0.85): PmfPoint[] {
  * values) into a clean per-cm histogram. Percentiles are still computed from the
  * raw PMF for accuracy.
  */
+/**
+ * Bin a PMF into a contiguous, evenly-spaced histogram for clean display.
+ * Bin width auto-scales to ~range/40 but never below 3 cm (the natural spacing
+ * of the reach values), so bars tile edge-to-edge with no combs/gaps. Every bin
+ * in range is included so spacing stays uniform. Percentiles use the raw PMF.
+ */
+export function histogramPmf(pmf: PmfPoint[]): PmfPoint[] {
+  if (pmf.length === 0) return [];
+  const minV = pmf[0].value;
+  const maxV = pmf[pmf.length - 1].value;
+  const range = maxV - minV || 1;
+  const binWidth = Math.max(3, Math.round(range / 40));
+  const start = Math.floor(minV / binWidth) * binWidth;
+  const nBins = Math.floor((maxV - start) / binWidth) + 1;
+  const buckets = new Array(nBins).fill(0);
+  for (const { value, prob } of pmf) {
+    let idx = Math.floor((value - start) / binWidth);
+    if (idx < 0) idx = 0;
+    if (idx >= nBins) idx = nBins - 1;
+    buckets[idx] += prob;
+  }
+  return buckets.map((prob, i) => ({ value: Math.round(start + (i + 0.5) * binWidth), prob }));
+}
+
 export function binPmfToIntegers(pmf: PmfPoint[]): PmfPoint[] {
   const buckets = new Map<number, number>();
   for (const { value, prob } of pmf) {

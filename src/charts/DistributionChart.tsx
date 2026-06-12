@@ -57,27 +57,14 @@ export function DistributionChart({
     // y position (0..PLOT_H, inverted — 0 is top) for a given probability
     const yOf = (p: number) => PLOT_H - (p / maxProb) * PLOT_H;
 
-    // Determine bar width: use spacing between adjacent unique values
-    let barW = 6;
+    // Bar width fills the (median) spacing between values so bars tile edge-to-edge
+    // for a clean solid histogram.
+    let barW = 8;
     if (pmf.length > 1) {
-      // Minimum gap between adjacent values
-      const minGap = Math.min(
-        ...pmf.slice(1).map((p, i) => p.value - pmf[i].value)
-      );
-      barW = Math.max(1, (minGap / valueRange) * PLOT_W - 1);
+      const gaps = pmf.slice(1).map((p, i) => p.value - pmf[i].value).sort((a, b) => a - b);
+      const medianGap = gaps[Math.floor(gaps.length / 2)] || (valueRange / pmf.length);
+      barW = Math.max(1, (medianGap / valueRange) * PLOT_W);
     }
-    // Cap so bars don't overlap on dense charts
-    barW = Math.min(barW, 24);
-
-    // Smooth area curve — build SVG path through bar tops
-    const areaPoints = pmf.map((p) => ({ x: xOf(p.value), y: yOf(p.prob) }));
-
-    // Area path: start from bottom-left, trace tops, end at bottom-right
-    let areaPath = `M ${areaPoints[0].x} ${PLOT_H}`;
-    for (const pt of areaPoints) {
-      areaPath += ` L ${pt.x} ${pt.y}`;
-    }
-    areaPath += ` L ${areaPoints[areaPoints.length - 1].x} ${PLOT_H} Z`;
 
     // Marker
     let markerX: number | null = null;
@@ -105,7 +92,7 @@ export function DistributionChart({
 
     return {
       pmf, values, probs, minVal, maxVal, maxProb, valueRange,
-      xOf, yOf, barW, areaPath, areaPoints,
+      xOf, yOf, barW,
       markerX, markerPct, ticks, maxProbPct,
     };
   }, [pmf, markerValue]);
@@ -119,16 +106,12 @@ export function DistributionChart({
   }
 
   const {
-    pmf: pts, xOf, yOf, barW, areaPath,
+    pmf: pts, xOf, yOf, barW,
     markerX, markerPct, ticks, maxProbPct,
   } = data;
 
   const displayMarker = markerValue != null && markerX != null;
   const displayPct    = displayMarker && markerPct != null;
-
-  // Percentile label: place it so it stays in bounds
-  let pctLabelX = (markerX ?? 0) + 6;
-  if (pctLabelX > PLOT_W - 40) pctLabelX = (markerX ?? 0) - 46;
 
   return (
     <div className="flex flex-col gap-1">
@@ -151,10 +134,6 @@ export function DistributionChart({
       >
         {/* Gradient definition */}
         <defs>
-          <linearGradient id="dist-grad" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%"   stopColor="#E8741E" stopOpacity="0.55" />
-            <stop offset="100%" stopColor="#E8741E" stopOpacity="0.05" />
-          </linearGradient>
           {displayMarker && (
             <linearGradient id="marker-grad" x1="0" y1="0" x2="0" y2="1">
               <stop offset="0%"   stopColor="#fb923c" stopOpacity="0.9" />
@@ -186,13 +165,6 @@ export function DistributionChart({
           />
         ))}
 
-        {/* Area fill */}
-        <path
-          transform={`translate(${PAD_LEFT}, ${PAD_TOP})`}
-          d={areaPath}
-          fill="url(#dist-grad)"
-        />
-
         {/* Bar ticks for individual values */}
         {pts.map((p, i) => {
           const x = xOf(p.value);
@@ -202,11 +174,10 @@ export function DistributionChart({
               key={i}
               x={PAD_LEFT + x - barW / 2}
               y={PAD_TOP + y}
-              width={barW}
+              width={Math.max(1, barW - 0.5)}
               height={PLOT_H - y}
               fill="#E8741E"
-              fillOpacity={0.85}
-              rx="1"
+              fillOpacity={1}
             />
           );
         })}
@@ -233,18 +204,6 @@ export function DistributionChart({
               `}
               fill="#fb923c"
             />
-            {/* Percentile label near marker */}
-            {displayPct && (
-              <text
-                x={PAD_LEFT + pctLabelX}
-                y={PAD_TOP + 12}
-                fontSize="10"
-                fontWeight="700"
-                fill="#fb923c"
-              >
-                {markerPct}%ile
-              </text>
-            )}
           </>
         )}
 
