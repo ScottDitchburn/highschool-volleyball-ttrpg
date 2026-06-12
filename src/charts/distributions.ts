@@ -152,6 +152,24 @@ export function blockingReachPmf(coef = 0.85): PmfPoint[] {
   return reachPmf((h, v) => 1.3 * h + coef * v);
 }
 
+/**
+ * Bin a PMF into whole-number `value` buckets, summing the probabilities of all
+ * values that round to the same integer. Used to smooth the visually-spiky reach
+ * distributions (which combine two independent rolls into many fine-grained
+ * values) into a clean per-cm histogram. Percentiles are still computed from the
+ * raw PMF for accuracy.
+ */
+export function binPmfToIntegers(pmf: PmfPoint[]): PmfPoint[] {
+  const buckets = new Map<number, number>();
+  for (const { value, prob } of pmf) {
+    const key = Math.round(value);
+    buckets.set(key, (buckets.get(key) ?? 0) + prob);
+  }
+  return Array.from(buckets.entries())
+    .map(([value, prob]) => ({ value, prob }))
+    .sort((a, b) => a.value - b.value);
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // CDF / percentile utilities
 // ─────────────────────────────────────────────────────────────────────────────
