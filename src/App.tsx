@@ -295,6 +295,14 @@ type AppState = 'name-entry' | 'wizard';
 function AppInner() {
   const [appState, setAppState] = useState<AppState>('name-entry');
 
+  // Reset (from SaveControls or graduation) clears the session and returns the
+  // player to the landing page to enter a new character name.
+  useEffect(() => {
+    const handler = () => setAppState('name-entry');
+    window.addEventListener('haikyu:reset', handler);
+    return () => window.removeEventListener('haikyu:reset', handler);
+  }, []);
+
   if (appState === 'name-entry') {
     return <NameEntry onStart={() => setAppState('wizard')} />;
   }

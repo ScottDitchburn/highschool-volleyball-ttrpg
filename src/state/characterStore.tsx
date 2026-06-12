@@ -453,6 +453,9 @@ export function CharacterProvider({ children }: { children: ReactNode }) {
     (action: CharacterAction) => {
       if (action.type === 'RESET') {
         clearSaved();
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new CustomEvent('haikyu:reset'));
+        }
       }
       dispatch(action);
     },
