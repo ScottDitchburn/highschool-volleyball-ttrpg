@@ -9,6 +9,7 @@ import { computeAPBudget } from '../engine/apEngine';
 import { LevelUpModal } from '../components/LevelUpModal';
 import { PrintSheet } from '../export/PrintSheet';
 import { buildDiscordExport } from '../export/discord';
+import { cmDual } from '../utils/units';
 import { SkillRadar } from '../charts/SkillRadar';
 
 // ── helpers ─────────────────────────────────────────────────────────────────
@@ -188,16 +189,16 @@ export function ReviewStep() {
           <div className="card flex flex-col gap-4">
             <div>
               <SectionHead>Physical Attributes</SectionHead>
-              <StatRow label="Height" value={physical ? `${physical.heightCm.toFixed(1)} cm` : '—'} />
-              <StatRow label="Vertical Jump" value={physical ? `${physical.verticalCm} cm` : '—'} />
+              <StatRow label="Height" value={physical ? cmDual(physical.heightCm) : '—'} />
+              <StatRow label="Vertical Jump" value={physical ? cmDual(physical.verticalCm, 0) : '—'} />
             </div>
 
             {derivedReaches && (
               <div>
                 <SectionHead>Derived Reaches</SectionHead>
-                <StatRow label="Standing Reach" value={`${derivedReaches.standingReachCm.toFixed(1)} cm`} />
-                <StatRow label="Spiking Reach"  value={`${derivedReaches.spikingReachCm.toFixed(1)} cm`} />
-                <StatRow label="Blocking Reach" value={`${derivedReaches.blockingReachCm.toFixed(1)} cm`}
+                <StatRow label="Standing Reach" value={cmDual(derivedReaches.standingReachCm)} />
+                <StatRow label="Spiking Reach"  value={cmDual(derivedReaches.spikingReachCm)} />
+                <StatRow label="Blocking Reach" value={cmDual(derivedReaches.blockingReachCm)}
                   sub={`(×${derivedReaches.blockingCoef})`} />
               </div>
             )}

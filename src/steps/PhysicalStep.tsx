@@ -11,6 +11,7 @@ import {
   verticalCmPmf,
 } from '../charts/distributions';
 import { rollToHeightCm, rollToVerticalCm, type PhysicalRoll } from '../types';
+import { cmDual } from '../utils/units';
 
 // Crypto-random 3d10
 function rollPhysical(): PhysicalRoll {
@@ -202,9 +203,9 @@ export function PhysicalStep() {
           formatValue={(v) => String(v)}
           formatSlotValue={(v) => {
             if (heightChipIdx !== undefined && chipValues[heightChipIdx] === v)
-              return v + ' -> ' + rollToHeightCm(v) + ' cm';
+              return v + ' -> ' + cmDual(rollToHeightCm(v), 0);
             if (verticalChipIdx !== undefined && chipValues[verticalChipIdx] === v)
-              return v + ' -> ' + rollToVerticalCm(v) + ' cm';
+              return v + ' -> ' + cmDual(rollToVerticalCm(v), 0);
             return String(v);
           }}
           onAssign={handleAssign}
@@ -222,7 +223,7 @@ export function PhysicalStep() {
           <div>
             <div className="text-xs text-charcoal-500 uppercase tracking-wide mb-1">Height</div>
             <div className="text-2xl font-black text-orange-400">
-              {heightCm !== null ? heightCm + ' cm' : '--'}
+              {heightCm !== null ? cmDual(heightCm, 0) : '--'}
             </div>
             {heightRoll !== null && (
               <div className="text-xs text-charcoal-500">Roll: {heightRoll}</div>
@@ -231,7 +232,7 @@ export function PhysicalStep() {
           <div>
             <div className="text-xs text-charcoal-500 uppercase tracking-wide mb-1">Vertical Jump</div>
             <div className="text-2xl font-black text-orange-400">
-              {verticalCm !== null ? verticalCm + ' cm' : '--'}
+              {verticalCm !== null ? cmDual(verticalCm, 0) : '--'}
             </div>
             {verticalRoll !== null && (
               <div className="text-xs text-charcoal-500">Roll: {verticalRoll}</div>

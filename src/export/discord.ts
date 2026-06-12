@@ -5,15 +5,12 @@ import type { Character, SkillStats, DerivedReaches } from '../types';
 import { SKILL_STAT_NAMES } from '../types';
 import { ABILITY_MAP } from '../data/abilities';
 import { computeAPBudget } from '../engine/apEngine';
+import { cmDual } from '../utils/units';
 
 const PAD = 14; // label column width
 
 function pad(s: string, n = PAD): string {
   return s.padEnd(n, ' ');
-}
-
-function fmt(n: number, decimals = 1): string {
-  return n.toFixed(decimals);
 }
 
 function yearLabel(y: number): string {
@@ -42,7 +39,7 @@ export function buildDiscordExport(
   const name = character.name || 'Unnamed Player';
   const year = yearLabel(character.schoolYear);
   const heightStr = character.physical
-    ? `${character.physical.heightCm.toFixed(1)} cm`
+    ? cmDual(character.physical.heightCm)
     : '—';
 
   lines.push('╔══════════════════════════════════════╗');
@@ -56,9 +53,9 @@ export function buildDiscordExport(
   // Reaches
   if (derived) {
     lines.push('  REACHES');
-    lines.push(`  ${pad('Standing')}${fmt(derived.standingReachCm)} cm`);
-    lines.push(`  ${pad('Spiking')} ${fmt(derived.spikingReachCm)} cm`);
-    lines.push(`  ${pad('Blocking')}${fmt(derived.blockingReachCm)} cm`);
+    lines.push(`  ${pad('Standing')}${cmDual(derived.standingReachCm)}`);
+    lines.push(`  ${pad('Spiking')} ${cmDual(derived.spikingReachCm)}`);
+    lines.push(`  ${pad('Blocking')}${cmDual(derived.blockingReachCm)}`);
   } else {
     lines.push('  REACHES  (physical not set)');
   }

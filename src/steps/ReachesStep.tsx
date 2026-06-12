@@ -2,6 +2,7 @@
 
 import { useMemo } from 'react';
 import { useCharacter } from '../state/characterStore';
+import { cmDual } from '../utils/units';
 import { DistributionChart } from '../charts/DistributionChart';
 import {
   standingReachPmf,
@@ -39,7 +40,7 @@ function ReachRow({ label, formula, valueCm, pmf }: ReachRowProps) {
         </div>
         <div className="flex items-baseline gap-3">
           <span className="text-2xl font-black text-orange-400">
-            {valueCm !== null ? valueCm.toFixed(1) + ' cm' : '--'}
+            {valueCm !== null ? cmDual(valueCm) : '--'}
           </span>
           {pct !== null && (
             <span className="text-xs font-semibold text-orange-300">
@@ -106,7 +107,7 @@ export function ReachesStep() {
           <div key={label} className="card py-3">
             <div className="text-xs text-charcoal-500 uppercase tracking-wide mb-1">{label}</div>
             <div className="text-xl font-black text-orange-400">
-              {value !== null ? value.toFixed(1) + ' cm' : '--'}
+              {value !== null ? cmDual(value) : '--'}
             </div>
           </div>
         ))}

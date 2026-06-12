@@ -8,6 +8,7 @@ import type { Character, SkillStats, DerivedReaches } from '../types';
 import { SKILL_STAT_NAMES } from '../types';
 import { ABILITY_MAP } from '../data/abilities';
 import { computeAPBudget } from '../engine/apEngine';
+import { cmDual } from '../utils/units';
 
 interface Props {
   character: Character;
@@ -72,13 +73,13 @@ export function PrintSheet({ character, effectiveStats, derived }: Props) {
                 <tr>
                   <td style={{ color: '#555', paddingBottom: '3px', width: '50%' }}>Height</td>
                   <td style={{ fontFamily: 'monospace', fontWeight: 700, textAlign: 'right' }}>
-                    {physical ? `${physical.heightCm.toFixed(1)} cm` : '—'}
+                    {physical ? cmDual(physical.heightCm) : '—'}
                   </td>
                 </tr>
                 <tr>
                   <td style={{ color: '#555', paddingBottom: '3px' }}>Vertical Jump</td>
                   <td style={{ fontFamily: 'monospace', fontWeight: 700, textAlign: 'right' }}>
-                    {physical ? `${physical.verticalCm} cm` : '—'}
+                    {physical ? cmDual(physical.verticalCm, 0) : '—'}
                   </td>
                 </tr>
               </tbody>
@@ -101,7 +102,7 @@ export function PrintSheet({ character, effectiveStats, derived }: Props) {
                     <tr key={label as string}>
                       <td style={{ color: '#555', paddingBottom: '3px' }}>{label}</td>
                       <td style={{ fontFamily: 'monospace', fontWeight: 700, textAlign: 'right' }}>
-                        {(val as number).toFixed(1)} cm
+                        {cmDual(val as number)}
                       </td>
                     </tr>
                   ))}

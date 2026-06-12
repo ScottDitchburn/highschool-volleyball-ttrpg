@@ -6,6 +6,7 @@ import { useCharacter } from '../state/characterStore';
 import { DiceRoller } from './DiceRoller';
 import { seededLevelUpHeight } from '../rng/seeded';
 import type { SchoolYear } from '../types';
+import { cmDual } from '../utils/units';
 
 interface Props {
   onClose: () => void;
@@ -227,7 +228,7 @@ export function LevelUpModal({ onClose, onGoToAbilities }: Props) {
                   </div>
                   {character.physical && (
                     <div className="text-charcoal-500 text-xs mt-1">
-                      {character.physical.heightCm.toFixed(1)} → {(character.physical.heightCm + heightGainCm).toFixed(1)} cm
+                      {cmDual(character.physical.heightCm)} → {cmDual(character.physical.heightCm + heightGainCm)}
                     </div>
                   )}
                 </div>
@@ -292,7 +293,7 @@ export function LevelUpModal({ onClose, onGoToAbilities }: Props) {
                   <div className="flex justify-between px-4 py-2.5">
                     <span className="text-charcoal-400">New Height</span>
                     <span className="text-charcoal-200 font-semibold">
-                      {(character.physical.heightCm + heightGainCm).toFixed(1)} cm
+                      {cmDual(character.physical.heightCm + heightGainCm)}
                     </span>
                   </div>
                 )}

@@ -3,6 +3,7 @@
 import React from 'react';
 import { useCharacter } from '../state/characterStore';
 import { SKILL_STAT_NAMES } from '../types';
+import { cmDual } from '../utils/units';
 
 interface Props {
   /** Mobile: allow collapsing the panel */
@@ -63,7 +64,7 @@ export function CharacterSheet({ collapsible = false }: Props) {
           <span className="font-mono text-right">
             {physical ? (
               <>
-                {(derivedReaches?.effectiveHeightCm ?? physical.heightCm).toFixed(1)} cm
+                {cmDual(derivedReaches?.effectiveHeightCm ?? physical.heightCm)}
                 {derivedReaches && derivedReaches.effectiveHeightCm > physical.heightCm && (
                   <span className="text-orange-400 ml-1">
                     (+{(derivedReaches.effectiveHeightCm - physical.heightCm).toFixed(1)})
@@ -74,7 +75,7 @@ export function CharacterSheet({ collapsible = false }: Props) {
           </span>
           <span className="text-charcoal-400">Vertical</span>
           <span className="font-mono text-right">
-            {physical ? `${physical.verticalCm} cm` : '—'}
+            {physical ? cmDual(physical.verticalCm, 0) : '—'}
           </span>
         </div>
       </section>
@@ -87,11 +88,11 @@ export function CharacterSheet({ collapsible = false }: Props) {
           </h3>
           <div className="grid grid-cols-2 gap-x-3 gap-y-1 text-charcoal-200">
             <span className="text-charcoal-400">Standing</span>
-            <span className="font-mono text-right">{derivedReaches.standingReachCm.toFixed(1)} cm</span>
+            <span className="font-mono text-right">{cmDual(derivedReaches.standingReachCm)}</span>
             <span className="text-charcoal-400">Spiking</span>
-            <span className="font-mono text-right">{derivedReaches.spikingReachCm.toFixed(1)} cm</span>
+            <span className="font-mono text-right">{cmDual(derivedReaches.spikingReachCm)}</span>
             <span className="text-charcoal-400">Blocking</span>
-            <span className="font-mono text-right">{derivedReaches.blockingReachCm.toFixed(1)} cm</span>
+            <span className="font-mono text-right">{cmDual(derivedReaches.blockingReachCm)}</span>
           </div>
         </section>
       )}
