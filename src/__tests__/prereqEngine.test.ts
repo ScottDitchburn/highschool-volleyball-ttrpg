@@ -285,11 +285,20 @@ describe('evaluatePrereq: meta flags', () => {
     expect(result.met).toBe(false);
   });
 
-  it('yearlyOnly: passes when levelUpHistory has an entry', () => {
+  it('yearlyOnly: fails when only a Summer Interhigh has occurred (no year advance)', () => {
     const char = makeChar({
       levelUpHistory: [{
-        fromYear: 1, toYear: 2,
-        teamsPlayed: 2, apGained: 7, heightGainCm: 0.5,
+        season: 'summer', year: 1, prelimGames: 2, nationalGames: 1, apGained: 7, heightGainCm: 0,
+      }],
+    });
+    const result = evaluatePrereq({ kind: 'meta', flag: 'yearlyOnly' }, char, null, null);
+    expect(result.met).toBe(false);
+  });
+
+  it('yearlyOnly: passes once a Spring Interhigh has advanced the year', () => {
+    const char = makeChar({
+      levelUpHistory: [{
+        season: 'spring', year: 1, prelimGames: 2, nationalGames: 1, apGained: 7, heightGainCm: 0.5,
       }],
     });
     const result = evaluatePrereq({ kind: 'meta', flag: 'yearlyOnly' }, char, null, null);

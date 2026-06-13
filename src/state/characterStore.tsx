@@ -22,10 +22,13 @@ import {
   type DerivedReaches,
   type SkillStats,
   type APBudget,
+  type InterhighSeason,
+  type LevelUpRecord,
   computeReaches,
   rollToHeightCm,
   rollToVerticalCm,
   experienceFromRoll,
+  interhighAp,
   SKILL_STAT_NAMES,
 } from '../types';
 
@@ -67,6 +70,7 @@ const DEFAULT_AP_BUDGET: APBudget = {
 export const INITIAL_CHARACTER: Character = {
   name: '',
   schoolYear: 1,
+  graduated: false,
   physicalPool: { rollA: null, rollB: null },
   physical: null,
   reaches: null,
@@ -99,7 +103,7 @@ export type CharacterAction =
   | { type: 'DESELECT_ABILITY'; uid: string }
   | { type: 'SET_ABILITY_TIER'; uid: string; tier: number }
   | { type: 'SET_ABILITY_CHOOSER'; uid: string; effectIndex: number; choice: SkillStat | SkillStat[] }
-  | { type: 'LEVEL_UP'; teamsPlayed: number; heightGainCm: number; apGained: number }
+  | { type: 'INTERHIGH'; season: InterhighSeason; prelimGames: number; nationalGames: number; heightGainCm: number }
   | { type: 'START_SEEDED_RUN'; seed: string }
   | { type: 'IMPORT_CHARACTER'; character: Character }
   | { type: 'RESET' };
@@ -141,6 +145,7 @@ function baseCharacterReducer(state: Character, action: CharacterAction): Charac
         skills: null,
         yearRoll: year,
         schoolYear: year,
+        graduated: false,
         experience: exp,
         apBudget,
         selectedAbilities: [],
@@ -270,16 +275,36 @@ function baseCharacterReducer(state: Character, action: CharacterAction): Charac
         }),
       };
 
-    case 'LEVEL_UP': {
-      const nextYear = Math.min(state.schoolYear + 1, 3) as SchoolYear;
-      const record = {
-        fromYear: state.schoolYear,
-        toYear: nextYear,
-        teamsPlayed: action.teamsPlayed,
-        apGained: action.apGained,
-        heightGainCm: action.heightGainCm,
+    case 'INTERHIGH': {
+      // Both events award AP = (2 × prelim) + (3 × national).
+      const apGained = interhighAp(action.prelimGames, action.nationalGames);
+      const newLevelGains = state.apBudget.levelUpGains + apGained;
+      const newBudget = {
+        ...state.apBudget,
+        levelUpGains: newLevelGains,
+        total: state.apBudget.base + state.apBudget.yearBonus + state.apBudget.experienceBonus + newLevelGains,
       };
-      const newLevelGains = state.apBudget.levelUpGains + action.apGained;
+
+      // Summer Interhigh: AP only — no year advance, no height, no unlocks.
+      if (action.season === 'summer') {
+        const record: LevelUpRecord = {
+          season: 'summer',
+          year: state.schoolYear,
+          prelimGames: action.prelimGames,
+          nationalGames: action.nationalGames,
+          apGained,
+          heightGainCm: 0,
+        };
+        return {
+          ...state,
+          apBudget: { ...newBudget, remaining: newBudget.total - newBudget.spent },
+          levelUpHistory: [...state.levelUpHistory, record],
+        };
+      }
+
+      // Spring Interhigh: AP + height growth + advance year (or graduate at 3rd year).
+      const graduating = state.schoolYear >= 3;
+      const nextYear = (graduating ? state.schoolYear : state.schoolYear + 1) as SchoolYear;
       const heightCm = state.physical
         ? state.physical.heightCm + action.heightGainCm
         : undefined;
@@ -289,14 +314,19 @@ function baseCharacterReducer(state: Character, action: CharacterAction): Charac
       const newReaches = newPhysical
         ? computeReaches(newPhysical.heightCm, newPhysical.verticalCm)
         : state.reaches;
-      const newBudget = {
-        ...state.apBudget,
-        levelUpGains: newLevelGains,
-        total: state.apBudget.base + state.apBudget.yearBonus + state.apBudget.experienceBonus + newLevelGains,
+      const record: LevelUpRecord = {
+        season: 'spring',
+        year: state.schoolYear,
+        prelimGames: action.prelimGames,
+        nationalGames: action.nationalGames,
+        apGained,
+        heightGainCm: action.heightGainCm,
+        graduated: graduating || undefined,
       };
       return {
         ...state,
         schoolYear: nextYear,
+        graduated: graduating ? true : state.graduated,
         physical: newPhysical,
         reaches: newReaches,
         apBudget: { ...newBudget, remaining: newBudget.total - newBudget.spent },
@@ -439,7 +469,7 @@ const CharacterContext = createContext<CharacterContextValue | null>(null);
 // Keep apBudget.spent/remaining in sync with the selected abilities after every
 // action, so all readers (live sheet, Year/Exp step, Print & Discord exports)
 // show correct AP without each recomputing.
-function characterReducer(state: Character, action: CharacterAction): Character {
+export function characterReducer(state: Character, action: CharacterAction): Character {
   const next = baseCharacterReducer(state, action);
   const spent = computeSpent(next);
   const remaining = next.apBudget.total - spent;
