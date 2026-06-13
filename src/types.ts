@@ -166,12 +166,22 @@ export interface SelectedAbility {
 
 // ── Level-up history ──────────────────────────────────────────────────────────
 
+/** Each school year has two Interhigh level-up events. */
+export type InterhighSeason = 'summer' | 'spring';
+
 export interface LevelUpRecord {
-  fromYear: SchoolYear;
-  toYear: SchoolYear;
-  teamsPlayed: number;
-  apGained: number;        // 3 + 2 × teamsPlayed
-  heightGainCm: number;    // 1d20 × 0.1
+  season: InterhighSeason;
+  year: SchoolYear;        // the school year this event occurred in
+  prelimGames: number;     // user-entered
+  nationalGames: number;   // user-entered
+  apGained: number;        // (2 × prelimGames) + (3 × nationalGames)
+  heightGainCm: number;    // 1d20 × 0.1 on Spring; 0 on Summer
+  graduated?: boolean;     // true only for the 3rd-year Spring event
+}
+
+/** AP awarded by either Interhigh event from its game counts. */
+export function interhighAp(prelimGames: number, nationalGames: number): number {
+  return 2 * prelimGames + 3 * nationalGames;
 }
 
 // ── Full character ────────────────────────────────────────────────────────────
@@ -179,6 +189,9 @@ export interface LevelUpRecord {
 export interface Character {
   name: string;
   schoolYear: SchoolYear;
+
+  /** True once the 3rd-year Spring Interhigh has been applied (year shows "Graduate"). */
+  graduated?: boolean;
 
   /** Raw pool rolls (nullable until rolled) */
   physicalPool: PhysicalPool;

@@ -421,27 +421,27 @@ describe('Auxiliary components', () => {
     expect(screen.getByRole('button', { name: /reset/i })).toBeTruthy();
   });
 
-  it('LevelUpModal renders (1st-year character → teams step)', () => {
+  it('LevelUpModal (Summer) renders the games entry for a 1st-year character', () => {
     const char: Character = { ...FULL_CHARACTER, schoolYear: 1, name: 'Test Player' };
     seedCharacter(char);
     render(
       <CharacterProvider>
-        <LevelUpModal onClose={vi.fn()} onGoToAbilities={vi.fn()} />
+        <LevelUpModal season="summer" onClose={vi.fn()} onGoToAbilities={vi.fn()} />
       </CharacterProvider>
     );
-    expect(screen.getByRole('dialog', { name: /level up/i })).toBeTruthy();
-    expect(document.body.textContent).toMatch(/teams.*played|level up/i);
+    expect(screen.getByRole('dialog', { name: /summer interhigh/i })).toBeTruthy();
+    expect(document.body.textContent).toMatch(/prelim games|national games/i);
   });
 
-  it('LevelUpModal renders graduation state for 3rd-year character', () => {
+  it('LevelUpModal (Spring) shows graduation wording for a 3rd-year character', () => {
     const char: Character = { ...FULL_CHARACTER, schoolYear: 3 };
     seedCharacter(char);
     render(
       <CharacterProvider>
-        <LevelUpModal onClose={vi.fn()} />
+        <LevelUpModal season="spring" onClose={vi.fn()} />
       </CharacterProvider>
     );
-    expect(document.body.textContent).toMatch(/graduated|graduation/i);
+    expect(document.body.textContent).toMatch(/graduation/i);
   });
 });
 

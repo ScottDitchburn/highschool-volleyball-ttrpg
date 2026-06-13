@@ -79,11 +79,12 @@ function evaluateMetaPrereq(
     case 'creationOnly':
       return { prereq, met: true, label: 'Select on Character Creation (OK)' };
     case 'yearlyOnly': {
-      const isLevelUp = character.levelUpHistory.length > 0;
+      // Unlocks only when the year has advanced via a Spring Interhigh.
+      const hadSpring = character.levelUpHistory.some((r) => r.season === 'spring');
       return {
         prereq,
-        met: isLevelUp,
-        label: isLevelUp ? 'Yearly Only (level-up -- OK)' : 'Yearly Only (locked at creation)',
+        met: hadSpring,
+        label: hadSpring ? 'Yearly Only (Spring Interhigh -- OK)' : 'Yearly Only (locked until Spring Interhigh)',
       };
     }
     case 'notFirstYear': {

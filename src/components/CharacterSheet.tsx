@@ -27,7 +27,9 @@ export function CharacterSheet({ collapsible = false }: Props) {
     );
   }
 
-  const yearLabel = schoolYear === 1 ? '1st Year' : schoolYear === 2 ? '2nd Year' : '3rd Year';
+  const yearLabel = character.graduated
+    ? 'Graduate'
+    : schoolYear === 1 ? '1st Year' : schoolYear === 2 ? '2nd Year' : '3rd Year';
 
   return (
     <aside className="character-sheet flex flex-col gap-4 text-sm" aria-label="Character sheet">

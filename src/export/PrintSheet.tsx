@@ -54,7 +54,7 @@ export function PrintSheet({ character, effectiveStats, derived }: Props) {
           {name || 'Unnamed Player'}
         </h1>
         <div style={{ color: '#555', fontSize: '14px', marginTop: '2px' }}>
-          Haikyuu: Gauntlet RPG v2 — {yearLabel(schoolYear)}
+          Haikyuu: Gauntlet RPG v2 — {character.graduated ? 'Graduate' : yearLabel(schoolYear)}
         </div>
         {character.seeded && character.seed && (
           <div style={{ color: '#888', fontSize: '11px', marginTop: '3px' }}>
@@ -175,8 +175,8 @@ export function PrintSheet({ character, effectiveStats, derived }: Props) {
               <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '11px' }}>
                 <thead>
                   <tr>
-                    <th style={{ textAlign: 'left', color: '#888', fontWeight: 600, paddingBottom: '3px' }}>Year</th>
-                    <th style={{ textAlign: 'right', color: '#888', fontWeight: 600, paddingBottom: '3px' }}>Teams</th>
+                    <th style={{ textAlign: 'left', color: '#888', fontWeight: 600, paddingBottom: '3px' }}>Event</th>
+                    <th style={{ textAlign: 'right', color: '#888', fontWeight: 600, paddingBottom: '3px' }}>Games</th>
                     <th style={{ textAlign: 'right', color: '#888', fontWeight: 600, paddingBottom: '3px' }}>AP</th>
                     <th style={{ textAlign: 'right', color: '#888', fontWeight: 600, paddingBottom: '3px' }}>Height</th>
                   </tr>
@@ -184,10 +184,14 @@ export function PrintSheet({ character, effectiveStats, derived }: Props) {
                 <tbody>
                   {levelUpHistory.map((r, i) => (
                     <tr key={i}>
-                      <td style={{ paddingBottom: '2px' }}>Y{r.fromYear}→Y{r.toYear}</td>
-                      <td style={{ fontFamily: 'monospace', textAlign: 'right' }}>{r.teamsPlayed}</td>
+                      <td style={{ paddingBottom: '2px' }}>
+                        Y{r.year} {r.season === 'summer' ? 'Summer' : (r.graduated ? 'Spring→Grad' : 'Spring')}
+                      </td>
+                      <td style={{ fontFamily: 'monospace', textAlign: 'right' }}>{r.prelimGames}P/{r.nationalGames}N</td>
                       <td style={{ fontFamily: 'monospace', textAlign: 'right', color: '#E8741E' }}>+{r.apGained}</td>
-                      <td style={{ fontFamily: 'monospace', textAlign: 'right' }}>+{r.heightGainCm.toFixed(1)}</td>
+                      <td style={{ fontFamily: 'monospace', textAlign: 'right' }}>
+                        {r.season === 'spring' ? `+${r.heightGainCm.toFixed(1)}` : '—'}
+                      </td>
                     </tr>
                   ))}
                 </tbody>

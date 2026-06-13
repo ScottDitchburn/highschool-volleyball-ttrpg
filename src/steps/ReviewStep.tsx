@@ -3,7 +3,7 @@
 
 import React, { useState, useCallback } from 'react';
 import { useCharacter } from '../state/characterStore';
-import { SKILL_STAT_NAMES } from '../types';
+import { SKILL_STAT_NAMES, type InterhighSeason } from '../types';
 import { ABILITY_MAP } from '../data/abilities';
 import { computeAPBudget } from '../engine/apEngine';
 import { LevelUpModal } from '../components/LevelUpModal';
@@ -79,13 +79,18 @@ function APSection({ spent, total, remaining }: { spent: number; total: number; 
 // ── Main ReviewStep ────────────────────────────────────────────────────────
 
 export function ReviewStep() {
-  const { character, effectiveStats, derivedReaches } = useCharacter();
+  const { character, dispatch, effectiveStats, derivedReaches } = useCharacter();
   const { name, schoolYear, physical, selectedAbilities, levelUpHistory } = character;
+  const graduated = character.graduated === true;
 
   const apBudget = computeAPBudget(character);
 
-  const [showLevelUp, setShowLevelUp] = useState(false);
+  const [levelUpSeason, setLevelUpSeason] = useState<InterhighSeason | null>(null);
   const [copyState, setCopyState] = useState<'idle' | 'copied' | 'error'>('idle');
+
+  // Within the current school year, Summer must be done before Spring is unlocked.
+  const summerDone = levelUpHistory.some((r) => r.season === 'summer' && r.year === schoolYear);
+  const springDone = levelUpHistory.some((r) => r.season === 'spring' && r.year === schoolYear);
 
   // Navigate to abilities step — relies on parent Wizard; we emit a custom event
   // and App.tsx can intercept it, OR we simply show a toast + close the modal.
@@ -113,14 +118,21 @@ export function ReviewStep() {
     window.print();
   }, []);
 
+  const handleReset = useCallback(() => {
+    if (window.confirm('Start a new character? This clears the current one — export first if you want to keep it.')) {
+      dispatch({ type: 'RESET' });
+    }
+  }, [dispatch]);
+
   const isThirdYear = schoolYear === 3;
 
   return (
     <>
-      {/* ── Level-Up modal ── */}
-      {showLevelUp && (
+      {/* ── Interhigh level-up modal ── */}
+      {levelUpSeason && (
         <LevelUpModal
-          onClose={() => setShowLevelUp(false)}
+          season={levelUpSeason}
+          onClose={() => setLevelUpSeason(null)}
           onGoToAbilities={handleGoToAbilities}
         />
       )}
@@ -143,7 +155,7 @@ export function ReviewStep() {
             <h2 className="text-2xl font-black text-orange-400 tracking-tight">
               {name || 'Unnamed Player'}
             </h2>
-            <p className="text-charcoal-400 text-sm mt-0.5">{yearLabel(schoolYear)}</p>
+            <p className="text-charcoal-400 text-sm mt-0.5">{graduated ? 'Graduate' : yearLabel(schoolYear)}</p>
           </div>
 
           {/* Action buttons */}
@@ -168,17 +180,48 @@ export function ReviewStep() {
             >
               {copyState === 'copied' ? 'Copied!' : copyState === 'error' ? 'Failed — try again' : 'Copy for Discord'}
             </button>
-            <button
-              onClick={() => setShowLevelUp(true)}
-              className={`text-sm py-2 px-4 rounded-lg font-bold transition-colors ${
-                isThirdYear
-                  ? 'bg-charcoal-700 border border-charcoal-600 text-charcoal-400 cursor-default'
-                  : 'bg-orange-600 hover:bg-orange-700 text-white'
-              }`}
-              title={isThirdYear ? '3rd year — graduation only' : `Advance to ${yearLabel((schoolYear + 1) as 1|2|3)}`}
-            >
-              {isThirdYear ? 'Graduate...' : 'Level Up'}
-            </button>
+            {graduated ? (
+              <button
+                onClick={handleReset}
+                className="text-sm py-2 px-4 rounded-lg font-bold bg-red-700 hover:bg-red-800 text-white transition-colors"
+                title="Clear this character and start a new one"
+              >
+                Start New Character
+              </button>
+            ) : (
+              <>
+                <button
+                  onClick={() => setLevelUpSeason('summer')}
+                  disabled={summerDone}
+                  className={`text-sm py-2 px-4 rounded-lg font-bold transition-colors ${
+                    summerDone
+                      ? 'bg-charcoal-700 border border-charcoal-600 text-charcoal-500 cursor-default'
+                      : 'bg-orange-600 hover:bg-orange-700 text-white'
+                  }`}
+                  title={summerDone ? 'Summer Interhigh already completed this year' : 'Summer Interhigh — bonus AP'}
+                >
+                  {summerDone ? 'Summer Interhigh ✓' : 'Summer Interhigh'}
+                </button>
+                <button
+                  onClick={() => setLevelUpSeason('spring')}
+                  disabled={!summerDone || springDone}
+                  className={`text-sm py-2 px-4 rounded-lg font-bold transition-colors ${
+                    !summerDone || springDone
+                      ? 'bg-charcoal-700 border border-charcoal-600 text-charcoal-500 cursor-not-allowed'
+                      : 'bg-orange-600 hover:bg-orange-700 text-white'
+                  }`}
+                  title={
+                    !summerDone
+                      ? 'Complete Summer Interhigh first'
+                      : isThirdYear
+                        ? 'Spring Interhigh & Graduation'
+                        : `Advance to ${yearLabel((schoolYear + 1) as 1 | 2 | 3)}`
+                  }
+                >
+                  {isThirdYear ? 'Spring Interhigh & Graduation' : 'Spring Interhigh'}
+                </button>
+              </>
+            )}
           </div>
         </div>
 
@@ -259,18 +302,26 @@ export function ReviewStep() {
             <div className="card">
               <SectionHead>Level-Up History</SectionHead>
               <div className="flex flex-col gap-2">
-                {levelUpHistory.map((record, i) => (
-                  <div key={i} className="bg-charcoal-800 rounded-lg px-3 py-2 text-sm flex justify-between items-center gap-2 flex-wrap">
-                    <span className="text-charcoal-300 font-semibold">
-                      Y{record.fromYear} → Y{record.toYear}
-                    </span>
-                    <div className="flex gap-3 text-xs text-charcoal-400">
-                      <span>{record.teamsPlayed} teams</span>
-                      <span className="text-orange-400 font-bold">+{record.apGained} AP</span>
-                      <span className="text-orange-300">+{record.heightGainCm.toFixed(1)} cm</span>
+                {levelUpHistory.map((record, i) => {
+                  const seasonLabel = record.season === 'summer' ? 'Summer Interhigh' : 'Spring Interhigh';
+                  const advance = record.season === 'spring'
+                    ? (record.graduated ? ' → Graduate' : ` → Y${record.year + 1}`)
+                    : '';
+                  return (
+                    <div key={i} className="bg-charcoal-800 rounded-lg px-3 py-2 text-sm flex justify-between items-center gap-2 flex-wrap">
+                      <span className="text-charcoal-300 font-semibold">
+                        Y{record.year} · {seasonLabel}{advance}
+                      </span>
+                      <div className="flex gap-3 text-xs text-charcoal-400">
+                        <span>{record.prelimGames}P / {record.nationalGames}N</span>
+                        <span className="text-orange-400 font-bold">+{record.apGained} AP</span>
+                        {record.season === 'spring' && (
+                          <span className="text-orange-300">+{record.heightGainCm.toFixed(1)} cm</span>
+                        )}
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
           )}
@@ -335,31 +386,57 @@ export function ReviewStep() {
           </div>
         )}
 
-        {/* ── Level-Up CTA (bottom) ── */}
-        <div className="card flex items-center justify-between gap-4 flex-wrap">
-          <div>
-            <div className="text-charcoal-200 font-semibold text-sm">
-              {isThirdYear
-                ? 'Your player has reached 3rd year.'
-                : `Ready to advance to ${yearLabel((schoolYear + 1) as 1|2|3)}?`}
+        {/* ── Interhigh CTA (bottom) — surfaces the next pending event ── */}
+        {graduated ? (
+          <div className="card flex items-center justify-between gap-4 flex-wrap">
+            <div>
+              <div className="text-charcoal-200 font-semibold text-sm">Your player has graduated.</div>
+              <div className="text-charcoal-500 text-xs mt-0.5">
+                Export your sheet, then start a new character whenever you're ready.
+              </div>
             </div>
-            <div className="text-charcoal-500 text-xs mt-0.5">
-              {isThirdYear
-                ? 'Export your sheet, then start a new character.'
-                : 'Level up to gain AP, grow taller, and unlock new abilities.'}
-            </div>
+            <button
+              onClick={handleReset}
+              className="text-sm py-2 px-5 rounded-lg font-bold bg-red-700 hover:bg-red-800 text-white transition-colors"
+            >
+              Start New Character
+            </button>
           </div>
-          <button
-            onClick={() => setShowLevelUp(true)}
-            className={`text-sm py-2 px-5 rounded-lg font-bold transition-colors ${
-              isThirdYear
-                ? 'bg-charcoal-700 border border-charcoal-600 text-charcoal-300 hover:border-orange-600 hover:text-orange-300'
-                : 'bg-orange-600 hover:bg-orange-700 text-white'
-            }`}
-          >
-            {isThirdYear ? 'Graduation...' : 'Level Up'}
-          </button>
-        </div>
+        ) : !summerDone ? (
+          <div className="card flex items-center justify-between gap-4 flex-wrap">
+            <div>
+              <div className="text-charcoal-200 font-semibold text-sm">Summer Interhigh</div>
+              <div className="text-charcoal-500 text-xs mt-0.5">
+                Enter your prelim &amp; national games to earn bonus AP. No year advance.
+              </div>
+            </div>
+            <button
+              onClick={() => setLevelUpSeason('summer')}
+              className="text-sm py-2 px-5 rounded-lg font-bold bg-orange-600 hover:bg-orange-700 text-white transition-colors"
+            >
+              Summer Interhigh
+            </button>
+          </div>
+        ) : !springDone ? (
+          <div className="card flex items-center justify-between gap-4 flex-wrap">
+            <div>
+              <div className="text-charcoal-200 font-semibold text-sm">
+                {isThirdYear ? 'Spring Interhigh & Graduation' : `Ready to advance to ${yearLabel((schoolYear + 1) as 1 | 2 | 3)}?`}
+              </div>
+              <div className="text-charcoal-500 text-xs mt-0.5">
+                {isThirdYear
+                  ? 'Spring Interhigh awards AP and height growth, then graduates your player.'
+                  : 'Spring Interhigh awards AP, grows your height, advances the year, and unlocks new abilities.'}
+              </div>
+            </div>
+            <button
+              onClick={() => setLevelUpSeason('spring')}
+              className="text-sm py-2 px-5 rounded-lg font-bold bg-orange-600 hover:bg-orange-700 text-white transition-colors"
+            >
+              {isThirdYear ? 'Spring Interhigh & Graduation' : 'Spring Interhigh'}
+            </button>
+          </div>
+        ) : null}
 
       </div>
     </>
