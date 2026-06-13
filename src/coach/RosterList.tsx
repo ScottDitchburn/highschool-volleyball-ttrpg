@@ -66,7 +66,7 @@ function RosterRow({ player, duplicate, selected, onSelect, onNumber, onPosition
     ? Object.entries(derived.effectiveStats)
         .sort((a, b) => b[1] - a[1])
         .slice(0, 3)
-        .map(([s, v]) => `${s} ${v.toFixed(1)}`)
+        .map(([s, v]) => `${s} ${v.toFixed(2)}`)
         .join(' · ')
     : 'stats not assigned';
 

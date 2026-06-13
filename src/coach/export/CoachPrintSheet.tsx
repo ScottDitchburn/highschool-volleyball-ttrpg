@@ -141,7 +141,7 @@ export function CoachPrintSheet({ coach }: Props) {
                     </td>
                     {SKILL_STAT_NAMES.map((s) => (
                       <td key={s} style={{ textAlign: 'center', padding: '3px 4px' }}>
-                        {d.effectiveStats ? d.effectiveStats[s].toFixed(1) : '—'}
+                        {d.effectiveStats ? d.effectiveStats[s].toFixed(2) : '—'}
                       </td>
                     ))}
                   </tr>
