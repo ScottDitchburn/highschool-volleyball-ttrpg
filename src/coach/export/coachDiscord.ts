@@ -22,7 +22,7 @@ export function buildCoachDiscordExport(coach: CoachState): string {
 
   lines.push('╔══════════════════════════════════════╗');
   lines.push(`  ${team}`);
-  lines.push('  Starting Lineup — Set 1');
+  lines.push('  Starting Lineup');
   lines.push('──────────────────────────────────────');
 
   // Lineup by rotation slot

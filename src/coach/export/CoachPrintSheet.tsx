@@ -77,7 +77,7 @@ export function CoachPrintSheet({ coach }: Props) {
       {/* Header */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', borderBottom: `3px solid ${INK}`, paddingBottom: 8, marginBottom: 12 }}>
         <div>
-          <div style={{ fontSize: 11, letterSpacing: 2, color: MUTED, fontWeight: 700 }}>SET 1 — LINE-UP SHEET</div>
+          <div style={{ fontSize: 11, letterSpacing: 2, color: MUTED, fontWeight: 700 }}>LINE-UP SHEET</div>
           <h1 style={{ margin: '2px 0 0', fontSize: 24, fontWeight: 900 }}>{coach.teamName || 'Unnamed Team'}</h1>
         </div>
         <div style={{ border: `1.5px solid ${INK}`, borderRadius: 4, padding: '4px 10px', minWidth: 130, textAlign: 'center' }}>

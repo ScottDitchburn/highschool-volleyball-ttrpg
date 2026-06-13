@@ -51,10 +51,10 @@ export function LineupGrid({ selectedId, onSelect }: Props) {
 
   return (
     <div className="flex flex-col gap-3">
-      {/* Header: SET 1 + LIBERO */}
+      {/* Header: team name + LIBERO */}
       <div className="flex items-stretch gap-3">
         <div className="flex-1 card flex flex-col justify-center py-2">
-          <div className="text-orange-400 font-black tracking-widest text-sm">SET 1 — LINE-UP</div>
+          <div className="text-orange-400 font-black tracking-widest text-sm">LINE-UP</div>
           <label className="flex items-center gap-2 mt-1">
             <span className="text-charcoal-500 text-xs uppercase tracking-wide">Team</span>
             <input
@@ -125,6 +125,12 @@ function SlotBox({ slot, player, selectable, onDrop, onTap, onClear }: SlotBoxPr
       role="button"
       tabIndex={0}
       aria-label={`Slot ${slot}${player ? `: ${player.character.name || 'Unnamed'}` : ' (empty)'}`}
+      draggable={!!player}
+      onDragStart={(e) => {
+        if (!player) return;
+        e.dataTransfer.setData('text/plain', player.id);
+        e.dataTransfer.effectAllowed = 'move';
+      }}
       onClick={onTap}
       onKeyDown={(e) => {
         if (e.key === 'Enter' || e.key === ' ') {
@@ -144,7 +150,8 @@ function SlotBox({ slot, player, selectable, onDrop, onTap, onClear }: SlotBoxPr
         if (id) onDrop(id);
       }}
       className={[
-        'relative aspect-[4/3] rounded-lg border-2 p-2 flex flex-col cursor-pointer transition-colors',
+        'relative aspect-[4/3] rounded-lg border-2 p-2 flex flex-col transition-colors',
+        player ? 'cursor-grab active:cursor-grabbing' : 'cursor-pointer',
         over
           ? 'border-orange-500 bg-orange-500/10'
           : player
@@ -187,6 +194,12 @@ function LiberoBox({ player, selectedId, onDrop, onTap, onClear }: LiberoBoxProp
       role="button"
       tabIndex={0}
       aria-label={`Libero${player ? `: ${player.character.name || 'Unnamed'}` : ' (empty)'}`}
+      draggable={!!player}
+      onDragStart={(e) => {
+        if (!player) return;
+        e.dataTransfer.setData('text/plain', player.id);
+        e.dataTransfer.effectAllowed = 'move';
+      }}
       onClick={onTap}
       onKeyDown={(e) => {
         if (e.key === 'Enter' || e.key === ' ') {
@@ -206,7 +219,8 @@ function LiberoBox({ player, selectedId, onDrop, onTap, onClear }: LiberoBoxProp
         if (id) onDrop(id);
       }}
       className={[
-        'w-32 rounded-lg border-2 p-2 flex flex-col cursor-pointer transition-colors',
+        'w-32 rounded-lg border-2 p-2 flex flex-col transition-colors',
+        player ? 'cursor-grab active:cursor-grabbing' : 'cursor-pointer',
         over
           ? 'border-orange-500 bg-orange-500/10'
           : player
