@@ -2,10 +2,12 @@
 // line-up sheet: lineup grid + libero at the top, full roster table at the bottom.
 // Rendered inside a `.print-only` wrapper; window.print() turns it into PDF.
 
+import { Fragment } from 'react';
 import type { CoachState, RosterPlayer, CourtSlot } from '../types';
 import { COURT_LAYOUT, POSITION_FULL } from '../types';
 import { SKILL_STAT_NAMES } from '../../types';
 import { deriveForPlayer } from '../playerStats';
+import { abilityLabels } from '../abilityLabels';
 import { cmDual } from '../../utils/units';
 
 const INK = '#111';
@@ -125,29 +127,40 @@ export function CoachPrintSheet({ coach }: Props) {
           <tbody>
             {coach.roster.map((p) => {
               const d = deriveForPlayer(p.character);
+              const abilities = abilityLabels(p.character);
               return (
-                <tr key={p.id}>
-                  <td style={{ textAlign: 'center', borderBottom: `1px solid ${LINE}`, padding: '3px 4px', fontWeight: 700 }}>
-                    {p.number ?? '—'}
-                  </td>
-                  <td
-                    style={{ borderBottom: `1px solid ${LINE}`, padding: '3px 4px' }}
-                    title={p.position ? POSITION_FULL[p.position] : undefined}
-                  >
-                    {p.position ?? '—'}
-                  </td>
-                  <td style={{ borderBottom: `1px solid ${LINE}`, padding: '3px 4px', whiteSpace: 'nowrap' }}>
-                    {p.character.name || 'Unnamed'}
-                  </td>
-                  <td style={{ textAlign: 'center', borderBottom: `1px solid ${LINE}`, padding: '3px 4px', whiteSpace: 'nowrap' }}>
-                    {d.effectiveHeightCm !== null ? cmDual(d.effectiveHeightCm) : '—'}
-                  </td>
-                  {SKILL_STAT_NAMES.map((s) => (
-                    <td key={s} style={{ textAlign: 'center', borderBottom: `1px solid ${LINE}`, padding: '3px 4px' }}>
-                      {d.effectiveStats ? d.effectiveStats[s].toFixed(1) : '—'}
+                <Fragment key={p.id}>
+                  <tr>
+                    <td style={{ textAlign: 'center', padding: '3px 4px', fontWeight: 700 }}>{p.number ?? '—'}</td>
+                    <td style={{ padding: '3px 4px' }} title={p.position ? POSITION_FULL[p.position] : undefined}>
+                      {p.position ?? '—'}
                     </td>
-                  ))}
-                </tr>
+                    <td style={{ padding: '3px 4px', whiteSpace: 'nowrap' }}>{p.character.name || 'Unnamed'}</td>
+                    <td style={{ textAlign: 'center', padding: '3px 4px', whiteSpace: 'nowrap' }}>
+                      {d.effectiveHeightCm !== null ? cmDual(d.effectiveHeightCm) : '—'}
+                    </td>
+                    {SKILL_STAT_NAMES.map((s) => (
+                      <td key={s} style={{ textAlign: 'center', padding: '3px 4px' }}>
+                        {d.effectiveStats ? d.effectiveStats[s].toFixed(1) : '—'}
+                      </td>
+                    ))}
+                  </tr>
+                  <tr>
+                    <td />
+                    <td
+                      colSpan={3 + SKILL_STAT_NAMES.length}
+                      style={{
+                        borderBottom: `1px solid ${LINE}`,
+                        padding: '0 4px 5px',
+                        fontSize: 9,
+                        color: MUTED,
+                      }}
+                    >
+                      <span style={{ fontWeight: 700 }}>Abilities: </span>
+                      {abilities.length > 0 ? abilities.join(' · ') : 'none'}
+                    </td>
+                  </tr>
+                </Fragment>
               );
             })}
           </tbody>

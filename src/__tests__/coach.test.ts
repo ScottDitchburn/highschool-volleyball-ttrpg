@@ -12,6 +12,7 @@ import {
   autosaveCoach,
 } from '../coach/persistence';
 import { buildCoachDiscordExport } from '../coach/export/coachDiscord';
+import { abilityLabels } from '../coach/abilityLabels';
 
 // ── Minimal character factory ──────────────────────────────────────────────────
 
@@ -250,5 +251,37 @@ describe('coach discord export', () => {
     expect(text.length).toBeLessThanOrEqual(2000);
     expect(text).toContain('Nekoma');
     expect(text).toContain('ROSTER (12)');
+  });
+
+  it('does not include skill stats in the roster lines', () => {
+    const { state, ids } = withRoster(1);
+    const populated = reduce(
+      state,
+      { type: 'SET_NUMBER', id: ids[0], number: 4 },
+      { type: 'SET_POSITION', id: ids[0], position: 'S' }
+    );
+    const text = buildCoachDiscordExport(populated);
+    expect(text).toContain('#4');
+    expect(text).toContain('P1');
+    // no stat labels leak into the export
+    expect(text).not.toMatch(/Spike|Speed|Stamina|Block/);
+  });
+});
+
+// ── Ability labels (print sheet) ────────────────────────────────────────────────
+
+describe('ability labels', () => {
+  it('lists selected ability names', () => {
+    const char = makeCharacter('Hinata');
+    char.selectedAbilities = [
+      { uid: 'u1', abilityId: 'training', tier: 0, chooserSelections: { 0: 'Spike' } },
+    ];
+    const labels = abilityLabels(char);
+    expect(labels.some((l) => l.startsWith('Training'))).toBe(true);
+    expect(labels[0]).toContain('Spike'); // chooser selection surfaced
+  });
+
+  it('returns an empty list when no abilities are selected', () => {
+    expect(abilityLabels(makeCharacter('Nobody'))).toEqual([]);
   });
 });

@@ -4,7 +4,6 @@
 
 import type { CoachState, RosterPlayer, CourtSlot } from '../types';
 import { COURT_SLOTS } from '../types';
-import { deriveForPlayer } from '../playerStats';
 
 function playerLabel(p: RosterPlayer | undefined | null): string {
   if (!p) return '—';
@@ -12,17 +11,6 @@ function playerLabel(p: RosterPlayer | undefined | null): string {
   const pos = p.position ? p.position : '--';
   const name = p.character.name || 'Unnamed';
   return `${num.padEnd(4)} ${pos.padEnd(2)} ${name}`;
-}
-
-/** Top two effective stats for a player, as a compact string. */
-function topStats(p: RosterPlayer): string {
-  const { effectiveStats } = deriveForPlayer(p.character);
-  if (!effectiveStats) return 'stats n/a';
-  return Object.entries(effectiveStats)
-    .sort((a, b) => b[1] - a[1])
-    .slice(0, 2)
-    .map(([s, v]) => `${s} ${v.toFixed(1)}`)
-    .join(' ');
 }
 
 export function buildCoachDiscordExport(coach: CoachState): string {
@@ -53,8 +41,8 @@ export function buildCoachDiscordExport(coach: CoachState): string {
     for (const p of coach.roster) {
       const num = (p.number !== null ? `#${p.number}` : '#--').padEnd(4);
       const pos = (p.position ?? '--').padEnd(2);
-      const name = (p.character.name || 'Unnamed').slice(0, 16).padEnd(16);
-      lines.push(`  ${num} ${pos} ${name} ${topStats(p)}`);
+      const name = p.character.name || 'Unnamed';
+      lines.push(`  ${num} ${pos} ${name}`);
     }
   }
 
