@@ -31,6 +31,8 @@ function yearLabel(y: number): string {
 export function PrintSheet({ character, effectiveStats, derived }: Props) {
   const { name, schoolYear, physical, selectedAbilities, levelUpHistory } = character;
   const apBudget = computeAPBudget(character); // live spent/remaining
+  const effHeightCm = derived?.effectiveHeightCm ?? physical?.heightCm ?? null;
+  const heightBonus = physical && effHeightCm !== null ? effHeightCm - physical.heightCm : 0;
 
   return (
     <div
@@ -74,7 +76,10 @@ export function PrintSheet({ character, effectiveStats, derived }: Props) {
                 <tr>
                   <td style={{ color: '#555', paddingBottom: '3px', width: '50%' }}>Height</td>
                   <td style={{ fontFamily: 'monospace', fontWeight: 700, textAlign: 'right' }}>
-                    {physical ? cmDual(physical.heightCm) : '—'}
+                    {effHeightCm !== null ? cmDual(effHeightCm) : '—'}
+                    {heightBonus > 0 && (
+                      <span style={{ fontSize: '10px', marginLeft: '4px', color: '#27ae60' }}>(+{heightBonus.toFixed(1)})</span>
+                    )}
                   </td>
                 </tr>
                 <tr>

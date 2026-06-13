@@ -38,9 +38,12 @@ export function buildDiscordExport(
 
   const name = character.name || 'Unnamed Player';
   const year = yearLabel(character.schoolYear);
-  const heightStr = character.physical
-    ? cmDual(character.physical.heightCm)
-    : '—';
+  let heightStr = '—';
+  if (character.physical) {
+    const eff = derived?.effectiveHeightCm ?? character.physical.heightCm;
+    const bonus = eff - character.physical.heightCm;
+    heightStr = cmDual(eff) + (bonus > 0 ? ` (+${bonus.toFixed(1)})` : '');
+  }
 
   lines.push('╔══════════════════════════════════════╗');
   lines.push(`  ${name}`);
