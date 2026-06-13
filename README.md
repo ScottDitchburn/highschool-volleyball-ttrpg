@@ -1,9 +1,9 @@
 # Haikyū: Gauntlet RPG v2 — Character Builder
 
 A web-based character builder for the Haikyū: Gauntlet RPG v2 tabletop system.
-Hosted on GitHub Pages; source in this repository.
+Deployed on Vercel; source in this repository.
 
-**Live site:** `https://<username>.github.io/<repo>/` *(URL to be filled in after first deploy)*
+**Live site:** https://washioisbae.vercel.app/
 
 ---
 
@@ -64,8 +64,8 @@ src/
 
 ## Deploy
 
-The GitHub Actions workflow (`.github/workflows/deploy.yml`) triggers on every
-push to `main`, builds the app with Node 20, and deploys `dist/` to GitHub Pages.
+Deployed on **Vercel** (https://washioisbae.vercel.app/). Vercel builds and
+publishes automatically on every push to `main`.
 
-Enable GitHub Pages in **Settings → Pages → Source: GitHub Actions** before the
-first push.
+> The legacy `.github/workflows/deploy.yml` GitHub Pages workflow is superseded
+> by the Vercel deployment and is no longer the source of the live site.

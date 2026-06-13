@@ -415,11 +415,13 @@ export const ABILITIES: Ability[] = [
     id: 'fan',
     name: 'Fan',
     baseCost: 1,
+    repeatable: true,
     prereqs: [],
     effects: [],
     notes:
-      'No prereqs. No tiers. No maxTimes. Pure narrative/flavor ability ' +
-      '(one loyal fan watches every set). No mechanical stat delta.',
+      'No prereqs. No tiers. Uncapped repeatable at a flat 1 AP per copy ' +
+      '(1 fan = 1 AP, 2 fans = 2 AP, 3 fans = 3 AP, …). Pure narrative/flavor ' +
+      'ability (one loyal fan watches every set). No mechanical stat delta.',
   },
 
   {
