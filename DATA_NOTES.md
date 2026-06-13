@@ -158,6 +158,13 @@ All 40 abilities from the "Abilities (WIP)" 2-column table in `Haikyu_ Gauntlet 
 
 ---
 
+### Fan (id: `fan`) — uncapped repeatable
+**Source text:** "Cost: 1 AP." Fan is purchasable an unlimited number of times; each copy costs a flat 1 AP (1 fan = 1 AP, 2 fans = 2 AP, 3 fans = 3 AP, …).
+**Interpretation:** Fan now has `repeatable: true`, matching the existing uncapped-repeat mechanic used by Training. Each instance is an independent `SelectedAbility` and `computeSpent` already sums `baseCost` per instance, so total cost scales linearly (three copies = 3 AP). Previously Fan had no `repeatable` flag and so defaulted to single-purchase (`maxTimes` 1), which was the bug. No schema change was needed.
+**Date logged:** 2026-06-13
+
+---
+
 ### Hustle / Block Follow — "+" notation in prereqs
 **Source text:** "Prereq: Speed +3.25, Dig +2.5" (Hustle); "Speed +3, Dig +3" (Block Follow).
 **Interpretation:** The `+` prefix before stat values is a formatting artifact, not an addition operator. Interpreted as minimum thresholds: Speed >= 3.25, Dig >= 2.5 etc. All other abilities use `Stat X+` notation consistently.

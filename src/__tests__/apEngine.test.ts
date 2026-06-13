@@ -129,6 +129,17 @@ describe('computeSpent', () => {
     expect(computeSpent(char)).toBe(10);
   });
 
+  it('fan repeats at a flat 1 AP per copy: three copies = 3 AP', () => {
+    const char = makeChar({
+      selectedAbilities: [
+        makeSel('fan', 0, 'f1'),
+        makeSel('fan', 0, 'f2'),
+        makeSel('fan', 0, 'f3'),
+      ],
+    });
+    expect(computeSpent(char)).toBe(3);
+  });
+
   it('unknown ability id is skipped gracefully', () => {
     const char = makeChar({ selectedAbilities: [makeSel('nonexistent-id', 0)] });
     expect(computeSpent(char)).toBe(0);

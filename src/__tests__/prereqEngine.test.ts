@@ -372,17 +372,21 @@ describe('evaluateAbility: maxedOut', () => {
     }
   });
 
-  it('fan (no maxTimes, maxTimes defaults to 1) is maxed after 1 purchase', () => {
+  it('fan (uncapped repeatable) never maxes out, each copy a flat 1 AP', () => {
     const fanAbility = ABILITY_MAP['fan'];
-    // Not yet purchased
+    // Not yet purchased: first copy costs 1 AP
     const charBefore = makeChar({ apBudget: makeBudget({ remaining: 10, total: 10 }) });
-    expect(evaluateAbility(fanAbility, charBefore, null, null).maxedOut).toBe(false);
-    // Purchased once
-    const charAfter = makeChar({
-      selectedAbilities: [makeSel('fan', 0)],
+    const evBefore = evaluateAbility(fanAbility, charBefore, null, null);
+    expect(evBefore.maxedOut).toBe(false);
+    expect(evBefore.tierCost).toBe(1);
+    // Two copies already owned: next copy is still 1 AP and still not maxed
+    const charTwo = makeChar({
+      selectedAbilities: [makeSel('fan', 0, 'f1'), makeSel('fan', 0, 'f2')],
       apBudget: makeBudget({ remaining: 10, total: 10 }),
     });
-    expect(evaluateAbility(fanAbility, charAfter, null, null).maxedOut).toBe(true);
+    const evTwo = evaluateAbility(fanAbility, charTwo, null, null);
+    expect(evTwo.maxedOut).toBe(false);
+    expect(evTwo.tierCost).toBe(1);
   });
 
   it('quick-learner (maxTimes=5) is not maxed at 4 purchases, maxed at 5', () => {
