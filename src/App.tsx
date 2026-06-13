@@ -1,7 +1,8 @@
 // App.tsx -- Stepped wizard shell with persistent live character-sheet panel.
 // Navigation is internal wizard state; NO router dependency.
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { CharacterProvider, useCharacter } from './state/characterStore';
+import { CoachApp } from './coach/CoachApp';
 import { CharacterSheet } from './components/CharacterSheet';
 import { SaveControls } from './components/SaveControls';
 import { PhysicalStep } from './steps/PhysicalStep';
@@ -27,7 +28,7 @@ type StepIndex = 0 | 1 | 2 | 3 | 4 | 5;
 
 // -- Name entry modal --
 
-function NameEntry({ onStart }: { onStart: () => void }) {
+function NameEntry({ onStart, onCoach }: { onStart: () => void; onCoach: () => void }) {
   const { character, dispatch } = useCharacter();
   const [seeded, setSeeded] = useState(false);
   const [seed, setSeed] = useState('');
@@ -117,6 +118,21 @@ function NameEntry({ onStart }: { onStart: () => void }) {
           className="btn-primary disabled:opacity-40 disabled:cursor-not-allowed"
         >
           {seeded ? 'Start Seeded Run' : 'Start Building'}
+        </button>
+
+        <div className="flex items-center gap-3 text-charcoal-600 text-xs">
+          <span className="flex-1 h-px bg-charcoal-700" />
+          or
+          <span className="flex-1 h-px bg-charcoal-700" />
+        </div>
+
+        <button
+          type="button"
+          onClick={onCoach}
+          className="btn-ghost"
+          title="Open team management to build a roster and starting lineup"
+        >
+          Coach — Team Management
         </button>
       </div>
 
@@ -292,7 +308,7 @@ function Wizard() {
 
 type AppState = 'name-entry' | 'wizard';
 
-function AppInner() {
+function AppInner({ onCoach }: { onCoach: () => void }) {
   const [appState, setAppState] = useState<AppState>('name-entry');
 
   // Reset (from SaveControls or graduation) clears the session and returns the
@@ -304,16 +320,40 @@ function AppInner() {
   }, []);
 
   if (appState === 'name-entry') {
-    return <NameEntry onStart={() => setAppState('wizard')} />;
+    return <NameEntry onStart={() => setAppState('wizard')} onCoach={onCoach} />;
   }
 
   return <Wizard />;
 }
 
+// Lightweight routing: /Coach (any case) → coach mode, everything else → builder.
+// No router dependency — just pathname + history.pushState, matching the app's
+// existing zero-router style. (vercel.json rewrites /Coach to index.html.)
+const COACH_PATH = /^\/coach\/?$/i;
+
 export default function App() {
+  const [path, setPath] = useState<string>(() => window.location.pathname);
+
+  useEffect(() => {
+    const onPop = () => setPath(window.location.pathname);
+    window.addEventListener('popstate', onPop);
+    return () => window.removeEventListener('popstate', onPop);
+  }, []);
+
+  const navigate = useCallback((to: string) => {
+    if (window.location.pathname !== to) {
+      window.history.pushState({}, '', to);
+    }
+    setPath(to);
+  }, []);
+
+  if (COACH_PATH.test(path)) {
+    return <CoachApp onExit={() => navigate('/')} />;
+  }
+
   return (
     <CharacterProvider>
-      <AppInner />
+      <AppInner onCoach={() => navigate('/Coach')} />
     </CharacterProvider>
   );
 }
