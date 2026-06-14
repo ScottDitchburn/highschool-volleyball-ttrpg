@@ -156,8 +156,18 @@ export function CoachPrintSheet({ coach }: Props) {
                         color: MUTED,
                       }}
                     >
-                      <span style={{ fontWeight: 700 }}>Abilities: </span>
-                      {abilities.length > 0 ? abilities.join(' · ') : 'none'}
+                      <div>
+                        <span style={{ fontWeight: 700 }}>Reach: </span>
+                        {d.reaches
+                          ? `Standing ${cmDual(d.reaches.standingReachCm)} · Spiking ${cmDual(
+                              d.reaches.spikingReachCm
+                            )} · Blocking ${cmDual(d.reaches.blockingReachCm)}`
+                          : '—'}
+                      </div>
+                      <div>
+                        <span style={{ fontWeight: 700 }}>Abilities: </span>
+                        {abilities.length > 0 ? abilities.join(' · ') : 'none'}
+                      </div>
                     </td>
                   </tr>
                 </Fragment>

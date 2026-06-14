@@ -263,8 +263,17 @@ describe('coach discord export', () => {
     const text = buildCoachDiscordExport(populated);
     expect(text).toContain('#4');
     expect(text).toContain('P1');
-    // no stat labels leak into the export
-    expect(text).not.toMatch(/Spike|Speed|Stamina|Block/);
+    // no skill-stat labels leak into the export
+    expect(text).not.toMatch(/Spike|Speed|Stamina/);
+  });
+
+  it('includes standing/spiking/blocking reaches per player', () => {
+    const { state, ids } = withRoster(1);
+    const populated = coachReducer(state, { type: 'SET_NUMBER', id: ids[0], number: 4 });
+    const text = buildCoachDiscordExport(populated);
+    // height 180 / vertical 75 → standing 234, spiking 309, blocking 297.75→298
+    expect(text).toContain('reach = standing/spiking/blocking');
+    expect(text).toMatch(/234\/309\/298/);
   });
 });
 

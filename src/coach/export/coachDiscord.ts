@@ -4,6 +4,16 @@
 
 import type { CoachState, RosterPlayer, CourtSlot } from '../types';
 import { COURT_SLOTS } from '../types';
+import { deriveForPlayer } from '../playerStats';
+
+/** Compact "standing/spiking/blocking" reaches in whole cm, or — when unset. */
+function reachTriple(p: RosterPlayer): string {
+  const { reaches } = deriveForPlayer(p.character);
+  if (!reaches) return '—';
+  return `${Math.round(reaches.standingReachCm)}/${Math.round(reaches.spikingReachCm)}/${Math.round(
+    reaches.blockingReachCm
+  )}`;
+}
 
 function playerLabel(p: RosterPlayer | undefined | null): string {
   if (!p) return '—';
@@ -34,6 +44,7 @@ export function buildCoachDiscordExport(coach: CoachState): string {
 
   lines.push('──────────────────────────────────────');
   lines.push(`  ROSTER (${coach.roster.length})`);
+  lines.push('  reach = standing/spiking/blocking (cm)');
 
   if (coach.roster.length === 0) {
     lines.push('  (no players)');
@@ -41,8 +52,8 @@ export function buildCoachDiscordExport(coach: CoachState): string {
     for (const p of coach.roster) {
       const num = (p.number !== null ? `#${p.number}` : '#--').padEnd(4);
       const pos = (p.position ?? '--').padEnd(2);
-      const name = p.character.name || 'Unnamed';
-      lines.push(`  ${num} ${pos} ${name}`);
+      const name = (p.character.name || 'Unnamed').slice(0, 16).padEnd(16);
+      lines.push(`  ${num} ${pos} ${name} ${reachTriple(p)}`);
     }
   }
 
