@@ -5,7 +5,7 @@
 import { useMemo } from 'react';
 import { useCoach, duplicateNumbers } from './coachStore';
 import { POSITIONS, POSITION_FULL, type Position, type RosterPlayer } from './types';
-import { deriveForPlayer } from './playerStats';
+import { deriveForPlayer, yearLabel } from './playerStats';
 import { cmDual } from '../utils/units';
 
 interface Props {
@@ -90,7 +90,7 @@ function RosterRow({ player, duplicate, selected, onSelect, onNumber, onPosition
       <div className="flex-1 min-w-0">
         <div className="font-semibold text-charcoal-100 truncate">{name}</div>
         <div className="text-charcoal-500 text-xs truncate">
-          {heightStr} · {topStats}
+          {yearLabel(player.character.schoolYear)} Yr · {heightStr} · {topStats}
         </div>
       </div>
 

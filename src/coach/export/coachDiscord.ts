@@ -4,7 +4,7 @@
 
 import type { CoachState, RosterPlayer, CourtSlot } from '../types';
 import { COURT_SLOTS } from '../types';
-import { deriveForPlayer } from '../playerStats';
+import { deriveForPlayer, yearLabel } from '../playerStats';
 
 /** Compact "standing/spiking/blocking" reaches in whole cm, or — when unset. */
 function reachTriple(p: RosterPlayer): string {
@@ -52,8 +52,9 @@ export function buildCoachDiscordExport(coach: CoachState): string {
     for (const p of coach.roster) {
       const num = (p.number !== null ? `#${p.number}` : '#--').padEnd(4);
       const pos = (p.position ?? '--').padEnd(2);
+      const yr = yearLabel(p.character.schoolYear).padEnd(3);
       const name = (p.character.name || 'Unnamed').slice(0, 16).padEnd(16);
-      lines.push(`  ${num} ${pos} ${name} ${reachTriple(p)}`);
+      lines.push(`  ${num} ${pos} ${yr} ${name} ${reachTriple(p)}`);
     }
   }
 

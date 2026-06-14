@@ -6,7 +6,7 @@ import { Fragment } from 'react';
 import type { CoachState, RosterPlayer, CourtSlot } from '../types';
 import { COURT_LAYOUT, POSITION_FULL } from '../types';
 import { SKILL_STAT_NAMES } from '../../types';
-import { deriveForPlayer } from '../playerStats';
+import { deriveForPlayer, yearLabel } from '../playerStats';
 import { abilityLabels } from '../abilityLabels';
 import { cmDual } from '../../utils/units';
 
@@ -108,7 +108,7 @@ export function CoachPrintSheet({ coach }: Props) {
         <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 10 }}>
           <thead>
             <tr>
-              {['#', 'Pos', 'Name', 'Ht', ...SKILL_STAT_NAMES].map((h) => (
+              {['#', 'Pos', 'Name', 'Yr', 'Ht', ...SKILL_STAT_NAMES].map((h) => (
                 <th
                   key={h}
                   style={{
@@ -137,6 +137,9 @@ export function CoachPrintSheet({ coach }: Props) {
                     </td>
                     <td style={{ padding: '3px 4px', whiteSpace: 'nowrap' }}>{p.character.name || 'Unnamed'}</td>
                     <td style={{ textAlign: 'center', padding: '3px 4px', whiteSpace: 'nowrap' }}>
+                      {yearLabel(p.character.schoolYear)}
+                    </td>
+                    <td style={{ textAlign: 'center', padding: '3px 4px', whiteSpace: 'nowrap' }}>
                       {d.effectiveHeightCm !== null ? cmDual(d.effectiveHeightCm) : '—'}
                     </td>
                     {SKILL_STAT_NAMES.map((s) => (
@@ -148,7 +151,7 @@ export function CoachPrintSheet({ coach }: Props) {
                   <tr>
                     <td />
                     <td
-                      colSpan={3 + SKILL_STAT_NAMES.length}
+                      colSpan={4 + SKILL_STAT_NAMES.length}
                       style={{
                         borderBottom: `1px solid ${LINE}`,
                         padding: '0 4px 5px',

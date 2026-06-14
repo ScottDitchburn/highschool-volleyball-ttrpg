@@ -275,6 +275,14 @@ describe('coach discord export', () => {
     expect(text).toContain('reach = standing/spiking/blocking');
     expect(text).toMatch(/234\/309\/298/);
   });
+
+  it('includes each player\'s school year', () => {
+    const { state, ids } = withRoster(1);
+    // makeCharacter defaults to year 1; bump to a 3rd year to be explicit
+    state.roster[0].character.schoolYear = 3;
+    const populated = coachReducer(state, { type: 'SET_NUMBER', id: ids[0], number: 4 });
+    expect(buildCoachDiscordExport(populated)).toMatch(/\b3rd\b/);
+  });
 });
 
 // ── Ability labels (print sheet) ────────────────────────────────────────────────

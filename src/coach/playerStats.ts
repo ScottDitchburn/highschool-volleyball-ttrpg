@@ -12,6 +12,11 @@ export interface PlayerDerived {
   effectiveHeightCm: number | null;
 }
 
+/** Short school-year label: 1 → "1st", 2 → "2nd", 3 → "3rd". */
+export function yearLabel(year: number): string {
+  return year === 1 ? '1st' : year === 2 ? '2nd' : year === 3 ? '3rd' : String(year);
+}
+
 export function deriveForPlayer(character: Character): PlayerDerived {
   const reaches = computeDerived(character);
   return {
