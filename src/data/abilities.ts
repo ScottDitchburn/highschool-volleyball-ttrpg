@@ -443,11 +443,14 @@ export const ABILITIES: Ability[] = [
     id: 'teammate-chemistry',
     name: 'Teammate Chemistry',
     baseCost: 2,
+    repeatable: true,
     prereqs: [],
     effects: [],
     notes:
       'No prereqs. No tiers. Effect is descriptive only -- in-play chemistry with ' +
-      'another player who also has this ability. No creation-time stat delta.',
+      'another player who also has this ability. No creation-time stat delta. ' +
+      'Uncapped repeatable at a flat 2 AP per copy (repeatable:true); one copy per ' +
+      'teammate, AP allowance permitting. No cost scaling for additional copies.',
   },
 
   {
