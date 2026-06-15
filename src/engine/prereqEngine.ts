@@ -79,11 +79,12 @@ function evaluateMetaPrereq(
     case 'creationOnly':
       return { prereq, met: true, label: 'Select on Character Creation (OK)' };
     case 'yearlyOnly': {
-      const isLevelUp = character.levelUpHistory.length > 0;
+      // Unlocks only when the year has advanced via a Spring Interhigh.
+      const hadSpring = character.levelUpHistory.some((r) => r.season === 'spring');
       return {
         prereq,
-        met: isLevelUp,
-        label: isLevelUp ? 'Yearly Only (level-up -- OK)' : 'Yearly Only (locked at creation)',
+        met: hadSpring,
+        label: hadSpring ? 'Yearly Only (Spring Interhigh -- OK)' : 'Yearly Only (locked until Spring Interhigh)',
       };
     }
     case 'notFirstYear': {
@@ -324,6 +325,70 @@ export function findCascadeDependents(
   }
 
   return dependents;
+}
+
+// ---------------------------------------------------------------------------
+// Validation sweep — find owned abilities whose prereqs are no longer met
+// ---------------------------------------------------------------------------
+
+export interface IneligibleAbility {
+  uid: string;
+  abilityId: string;
+  name: string;
+  reason: string;
+}
+
+/**
+ * Sweep every owned ability and return those whose prereqs are no longer
+ * satisfied against the character's CURRENT state (stats, reaches, year, etc.).
+ *
+ * Runs iteratively so prerequisite chains resolve fully: if removing a
+ * now-invalid ability (because its own prereq broke, or it was a stat source)
+ * causes another owned ability to fail, that dependent is caught on the next
+ * pass. Keeps going until the kept set is stable.
+ *
+ * Pure: does not mutate the character. The caller decides whether to prune.
+ */
+export function findIneligibleAbilities(character: Character): IneligibleAbility[] {
+  let kept = [...character.selectedAbilities];
+  const removed: IneligibleAbility[] = [];
+
+  let changed = true;
+  while (changed) {
+    changed = false;
+    const simCharacter = { ...character, selectedAbilities: kept };
+    const simEffective = computeSimEffectiveStats(simCharacter);
+    const simDerived = computeSimDerived(simCharacter);
+
+    const stillKept: typeof kept = [];
+    for (const sel of kept) {
+      const ability = ABILITY_MAP[sel.abilityId];
+      if (!ability) {
+        stillKept.push(sel);
+        continue;
+      }
+      const { results, allMet } = evaluateAllPrereqs(
+        ability.prereqs,
+        simCharacter,
+        simEffective,
+        simDerived,
+      );
+      if (allMet) {
+        stillKept.push(sel);
+      } else {
+        removed.push({
+          uid: sel.uid,
+          abilityId: sel.abilityId,
+          name: ability.name,
+          reason: results.filter((r) => !r.met).map((r) => r.label).join('; '),
+        });
+        changed = true;
+      }
+    }
+    kept = stillKept;
+  }
+
+  return removed;
 }
 
 // ---------------------------------------------------------------------------

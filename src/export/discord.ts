@@ -37,7 +37,7 @@ export function buildDiscordExport(
   const lines: string[] = [];
 
   const name = character.name || 'Unnamed Player';
-  const year = yearLabel(character.schoolYear);
+  const year = character.graduated ? 'Graduate' : yearLabel(character.schoolYear);
   let heightStr = '—';
   if (character.physical) {
     const eff = derived?.effectiveHeightCm ?? character.physical.heightCm;
@@ -118,9 +118,11 @@ export function buildDiscordExport(
 
   // Level-up history footnote (compact)
   const historyNote = character.levelUpHistory.length > 0
-    ? `\n[Level-up history: ${character.levelUpHistory.map(r =>
-        `Y${r.fromYear}→Y${r.toYear} +${r.apGained}AP +${r.heightGainCm.toFixed(1)}cm`
-      ).join(' | ')}]`
+    ? `\n[Level-up history: ${character.levelUpHistory.map(r => {
+        const s = r.season === 'summer' ? 'Summer' : (r.graduated ? 'Spring→Grad' : 'Spring');
+        const h = r.season === 'spring' ? ` +${r.heightGainCm.toFixed(1)}cm` : '';
+        return `Y${r.year} ${s} +${r.apGained}AP${h}`;
+      }).join(' | ')}]`
     : '';
 
   const full = '```\n' + body + historyNote + '\n```';

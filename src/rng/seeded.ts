@@ -96,9 +96,12 @@ export function seededExperienceRoll(seed: string): SeededExperience {
 
 export interface SeededLevelUpHeight { die: number; cm: number; }
 
-/** 1d20 × 0.1 cm off-season height growth, keyed by the year being entered. */
-export function seededLevelUpHeight(seed: string, toYear: number): SeededLevelUpHeight {
-  const die = seededDiceFaces(seed, `levelup-height-y${toYear}`, 1, 20)[0];
+/**
+ * 1d20 × 0.1 cm Spring Interhigh height growth, keyed by the school year the
+ * Spring event occurs in (1, 2, or 3) so each of the three Springs is distinct.
+ */
+export function seededLevelUpHeight(seed: string, springYear: number): SeededLevelUpHeight {
+  const die = seededDiceFaces(seed, `levelup-height-spring-y${springYear}`, 1, 20)[0];
   return { die, cm: Math.round(die * 0.1 * 100) / 100 };
 }
 

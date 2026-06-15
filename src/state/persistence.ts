@@ -2,7 +2,7 @@
 // Persistence — localStorage autosave + JSON export/import
 // ─────────────────────────────────────────────────────────────────────────────
 
-import type { Character, SelectedAbility } from '../types';
+import type { Character, SelectedAbility, LevelUpRecord } from '../types';
 import { generateUid } from './characterStore';
 import { INITIAL_CHARACTER } from './characterStore';
 
@@ -30,6 +30,20 @@ function migrateSelectedAbilities(abilities: unknown[]): SelectedAbility[] {
       return { ...sel, uid: generateUid() } as unknown as SelectedAbility;
     }
     return sel as unknown as SelectedAbility;
+  });
+}
+
+/**
+ * The level-up record shape changed with the two-event (Summer/Spring Interhigh)
+ * system. Old records lack a `season` field. Drop incompatible entries — the
+ * character's banked AP lives in apBudget.levelUpGains and is preserved — so the
+ * history footnote just starts fresh rather than rendering broken rows.
+ */
+function migrateLevelUpHistory(history: unknown): LevelUpRecord[] {
+  if (!Array.isArray(history)) return [];
+  return history.filter((entry): entry is LevelUpRecord => {
+    const r = entry as Record<string, unknown> | null;
+    return r != null && (r.season === 'summer' || r.season === 'spring');
   });
 }
 
@@ -77,6 +91,8 @@ export function loadSaved(): Character | null {
     if (Array.isArray(character.selectedAbilities)) {
       character.selectedAbilities = migrateSelectedAbilities(character.selectedAbilities);
     }
+    // Migrate: drop pre-two-event level-up records (banked AP is preserved separately)
+    character.levelUpHistory = migrateLevelUpHistory(character.levelUpHistory);
     return character;
   } catch {
     return null;
@@ -169,6 +185,8 @@ export async function importCharacterFromFile(
     if (Array.isArray(character.selectedAbilities)) {
       character.selectedAbilities = migrateSelectedAbilities(character.selectedAbilities);
     }
+    // Migrate: drop pre-two-event level-up records (banked AP is preserved separately)
+    character.levelUpHistory = migrateLevelUpHistory(character.levelUpHistory);
     return { ok: true, character };
   } catch (err) {
     return { ok: false, error: `Unexpected error: ${String(err)}` };

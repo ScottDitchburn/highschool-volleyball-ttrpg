@@ -22,15 +22,19 @@ import {
   type DerivedReaches,
   type SkillStats,
   type APBudget,
+  type InterhighSeason,
+  type LevelUpRecord,
   computeReaches,
   rollToHeightCm,
   rollToVerticalCm,
   experienceFromRoll,
+  interhighAp,
   SKILL_STAT_NAMES,
 } from '../types';
 
 import { ABILITY_MAP } from '../data/abilities';
 import { computeSpent } from '../engine/apEngine';
+import { findIneligibleAbilities } from '../engine/prereqEngine';
 import {
   seededPhysicalRoll, seededSkillChip, seededYear, seededYearBonus, seededExperienceRoll,
 } from '../rng/seeded';
@@ -67,6 +71,7 @@ const DEFAULT_AP_BUDGET: APBudget = {
 export const INITIAL_CHARACTER: Character = {
   name: '',
   schoolYear: 1,
+  graduated: false,
   physicalPool: { rollA: null, rollB: null },
   physical: null,
   reaches: null,
@@ -97,9 +102,10 @@ export type CharacterAction =
   | { type: 'SET_EXPERIENCE_ROLL'; roll: number }
   | { type: 'SELECT_ABILITY'; abilityId: string }
   | { type: 'DESELECT_ABILITY'; uid: string }
+  | { type: 'PRUNE_ABILITIES'; uids: string[] }
   | { type: 'SET_ABILITY_TIER'; uid: string; tier: number }
   | { type: 'SET_ABILITY_CHOOSER'; uid: string; effectIndex: number; choice: SkillStat | SkillStat[] }
-  | { type: 'LEVEL_UP'; teamsPlayed: number; heightGainCm: number; apGained: number }
+  | { type: 'INTERHIGH'; season: InterhighSeason; prelimGames: number; nationalGames: number; heightGainCm: number }
   | { type: 'START_SEEDED_RUN'; seed: string }
   | { type: 'IMPORT_CHARACTER'; character: Character }
   | { type: 'RESET' };
@@ -141,6 +147,7 @@ function baseCharacterReducer(state: Character, action: CharacterAction): Charac
         skills: null,
         yearRoll: year,
         schoolYear: year,
+        graduated: false,
         experience: exp,
         apBudget,
         selectedAbilities: [],
@@ -247,6 +254,15 @@ function baseCharacterReducer(state: Character, action: CharacterAction): Charac
         selectedAbilities: state.selectedAbilities.filter(a => a.uid !== action.uid),
       };
 
+    case 'PRUNE_ABILITIES': {
+      if (action.uids.length === 0) return state;
+      const drop = new Set(action.uids);
+      return {
+        ...state,
+        selectedAbilities: state.selectedAbilities.filter(a => !drop.has(a.uid)),
+      };
+    }
+
     case 'SET_ABILITY_TIER':
       return {
         ...state,
@@ -270,16 +286,36 @@ function baseCharacterReducer(state: Character, action: CharacterAction): Charac
         }),
       };
 
-    case 'LEVEL_UP': {
-      const nextYear = Math.min(state.schoolYear + 1, 3) as SchoolYear;
-      const record = {
-        fromYear: state.schoolYear,
-        toYear: nextYear,
-        teamsPlayed: action.teamsPlayed,
-        apGained: action.apGained,
-        heightGainCm: action.heightGainCm,
+    case 'INTERHIGH': {
+      // Both events award AP = (2 × prelim) + (3 × national).
+      const apGained = interhighAp(action.prelimGames, action.nationalGames);
+      const newLevelGains = state.apBudget.levelUpGains + apGained;
+      const newBudget = {
+        ...state.apBudget,
+        levelUpGains: newLevelGains,
+        total: state.apBudget.base + state.apBudget.yearBonus + state.apBudget.experienceBonus + newLevelGains,
       };
-      const newLevelGains = state.apBudget.levelUpGains + action.apGained;
+
+      // Summer Interhigh: AP only — no year advance, no height, no unlocks.
+      if (action.season === 'summer') {
+        const record: LevelUpRecord = {
+          season: 'summer',
+          year: state.schoolYear,
+          prelimGames: action.prelimGames,
+          nationalGames: action.nationalGames,
+          apGained,
+          heightGainCm: 0,
+        };
+        return {
+          ...state,
+          apBudget: { ...newBudget, remaining: newBudget.total - newBudget.spent },
+          levelUpHistory: [...state.levelUpHistory, record],
+        };
+      }
+
+      // Spring Interhigh: AP + height growth + advance year (or graduate at 3rd year).
+      const graduating = state.schoolYear >= 3;
+      const nextYear = (graduating ? state.schoolYear : state.schoolYear + 1) as SchoolYear;
       const heightCm = state.physical
         ? state.physical.heightCm + action.heightGainCm
         : undefined;
@@ -289,14 +325,19 @@ function baseCharacterReducer(state: Character, action: CharacterAction): Charac
       const newReaches = newPhysical
         ? computeReaches(newPhysical.heightCm, newPhysical.verticalCm)
         : state.reaches;
-      const newBudget = {
-        ...state.apBudget,
-        levelUpGains: newLevelGains,
-        total: state.apBudget.base + state.apBudget.yearBonus + state.apBudget.experienceBonus + newLevelGains,
+      const record: LevelUpRecord = {
+        season: 'spring',
+        year: state.schoolYear,
+        prelimGames: action.prelimGames,
+        nationalGames: action.nationalGames,
+        apGained,
+        heightGainCm: action.heightGainCm,
+        graduated: graduating || undefined,
       };
       return {
         ...state,
         schoolYear: nextYear,
+        graduated: graduating ? true : state.graduated,
         physical: newPhysical,
         reaches: newReaches,
         apBudget: { ...newBudget, remaining: newBudget.total - newBudget.spent },
@@ -439,7 +480,7 @@ const CharacterContext = createContext<CharacterContextValue | null>(null);
 // Keep apBudget.spent/remaining in sync with the selected abilities after every
 // action, so all readers (live sheet, Year/Exp step, Print & Discord exports)
 // show correct AP without each recomputing.
-function characterReducer(state: Character, action: CharacterAction): Character {
+export function characterReducer(state: Character, action: CharacterAction): Character {
   const next = baseCharacterReducer(state, action);
   const spent = computeSpent(next);
   const remaining = next.apBudget.total - spent;
@@ -459,6 +500,22 @@ export function CharacterProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     autosave(character);
+  }, [character]);
+
+  // Validation sweep: whenever the character changes (e.g. stats reassigned on
+  // the Skills step, year advanced), re-check every owned ability's prereqs.
+  // Any that no longer qualify are auto-removed and broadcast so the UI can
+  // show a notice. Runs after commit; the prune dispatch settles in one pass
+  // because the next sweep finds nothing to remove.
+  useEffect(() => {
+    const ineligible = findIneligibleAbilities(character);
+    if (ineligible.length === 0) return;
+    dispatch({ type: 'PRUNE_ABILITIES', uids: ineligible.map((d) => d.uid) });
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(
+        new CustomEvent('haikyu:abilities-pruned', { detail: { removed: ineligible } }),
+      );
+    }
   }, [character]);
 
   const wrappedDispatch: React.Dispatch<CharacterAction> = React.useCallback(

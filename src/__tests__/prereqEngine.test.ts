@@ -5,6 +5,7 @@ import {
   cumulativeCost,
   evaluatePrereq,
   evaluateAbility,
+  findIneligibleAbilities,
 } from '../engine/prereqEngine';
 import { ABILITY_MAP } from '../data/abilities';
 
@@ -285,11 +286,20 @@ describe('evaluatePrereq: meta flags', () => {
     expect(result.met).toBe(false);
   });
 
-  it('yearlyOnly: passes when levelUpHistory has an entry', () => {
+  it('yearlyOnly: fails when only a Summer Interhigh has occurred (no year advance)', () => {
     const char = makeChar({
       levelUpHistory: [{
-        fromYear: 1, toYear: 2,
-        teamsPlayed: 2, apGained: 7, heightGainCm: 0.5,
+        season: 'summer', year: 1, prelimGames: 2, nationalGames: 1, apGained: 7, heightGainCm: 0,
+      }],
+    });
+    const result = evaluatePrereq({ kind: 'meta', flag: 'yearlyOnly' }, char, null, null);
+    expect(result.met).toBe(false);
+  });
+
+  it('yearlyOnly: passes once a Spring Interhigh has advanced the year', () => {
+    const char = makeChar({
+      levelUpHistory: [{
+        season: 'spring', year: 1, prelimGames: 2, nationalGames: 1, apGained: 7, heightGainCm: 0.5,
       }],
     });
     const result = evaluatePrereq({ kind: 'meta', flag: 'yearlyOnly' }, char, null, null);
@@ -404,5 +414,72 @@ describe('evaluateAbility: maxedOut', () => {
       apBudget: makeBudget({ remaining: 999, total: 999 }),
     });
     expect(evaluateAbility(ability, char5, statsOk, null).maxedOut).toBe(true);
+  });
+});
+
+// ── findIneligibleAbilities (validation sweep) ──────────────────────────────────
+
+describe('findIneligibleAbilities', () => {
+  it('returns nothing when all owned abilities still qualify', () => {
+    const char = makeChar({
+      skills: allStats(3),
+      selectedAbilities: [makeSel('jump-serve', 0, 'js')], // prereq Serve 3+
+    });
+    expect(findIneligibleAbilities(char)).toEqual([]);
+  });
+
+  it('flags an ability whose stat prereq is no longer met after a stat change', () => {
+    // jump-serve needs Serve 3+; drop Serve to 2 and it should be reported.
+    const char = makeChar({
+      skills: { ...allStats(3), Serve: 2 },
+      selectedAbilities: [makeSel('jump-serve', 0, 'js')],
+    });
+    const removed = findIneligibleAbilities(char);
+    expect(removed).toHaveLength(1);
+    expect(removed[0].uid).toBe('js');
+    expect(removed[0].abilityId).toBe('jump-serve');
+    expect(removed[0].reason).toContain('Serve');
+  });
+
+  it('flags an ability whose ability-chain prereq is missing', () => {
+    // standing-block requires Double Jump Tier III; with reach high enough but
+    // double-jump absent it must be reported, citing Double Jump.
+    const char = makeChar({
+      skills: allStats(3),
+      physical: { heightRoll: 30, verticalRoll: 20, heightCm: 210, verticalCm: 105 },
+      selectedAbilities: [makeSel('standing-block', 0, 'sb')],
+    });
+    const removed = findIneligibleAbilities(char);
+    expect(removed.map((r) => r.abilityId)).toContain('standing-block');
+    expect(removed.find((r) => r.uid === 'sb')!.reason).toContain('Double Jump');
+  });
+
+  it('does not touch repeatable abilities with no prereqs (e.g. Training, Fan)', () => {
+    const char = makeChar({
+      skills: { ...allStats(3), Serve: 2 }, // breaks jump-serve only
+      selectedAbilities: [
+        makeSel('training', 0, 't1'),
+        makeSel('fan', 0, 'f1'),
+        makeSel('jump-serve', 0, 'js'),
+      ],
+    });
+    const removed = findIneligibleAbilities(char);
+    expect(removed.map((r) => r.uid)).toEqual(['js']);
+  });
+
+  it('cascades: dropping a stat removes its dependent and then the chain on top of it', () => {
+    // standing-block (reach 260+ AND Double Jump III) sits on top of double-jump
+    // (standing reach 250+). Drop standing reach below 250 by shrinking height:
+    // double-jump fails its derived prereq AND standing-block fails too — both go.
+    const char = makeChar({
+      skills: allStats(3),
+      physical: { heightRoll: 0, verticalRoll: 0, heightCm: 150, verticalCm: 45 }, // reach 195
+      selectedAbilities: [
+        makeSel('double-jump', 3, 'dj'),
+        makeSel('standing-block', 0, 'sb'),
+      ],
+    });
+    const removed = findIneligibleAbilities(char);
+    expect(removed.map((r) => r.uid).sort()).toEqual(['dj', 'sb']);
   });
 });
