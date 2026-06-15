@@ -34,6 +34,7 @@ import {
 
 import { ABILITY_MAP } from '../data/abilities';
 import { computeSpent } from '../engine/apEngine';
+import { findIneligibleAbilities } from '../engine/prereqEngine';
 import {
   seededPhysicalRoll, seededSkillChip, seededYear, seededYearBonus, seededExperienceRoll,
 } from '../rng/seeded';
@@ -101,6 +102,7 @@ export type CharacterAction =
   | { type: 'SET_EXPERIENCE_ROLL'; roll: number }
   | { type: 'SELECT_ABILITY'; abilityId: string }
   | { type: 'DESELECT_ABILITY'; uid: string }
+  | { type: 'PRUNE_ABILITIES'; uids: string[] }
   | { type: 'SET_ABILITY_TIER'; uid: string; tier: number }
   | { type: 'SET_ABILITY_CHOOSER'; uid: string; effectIndex: number; choice: SkillStat | SkillStat[] }
   | { type: 'INTERHIGH'; season: InterhighSeason; prelimGames: number; nationalGames: number; heightGainCm: number }
@@ -251,6 +253,15 @@ function baseCharacterReducer(state: Character, action: CharacterAction): Charac
         ...state,
         selectedAbilities: state.selectedAbilities.filter(a => a.uid !== action.uid),
       };
+
+    case 'PRUNE_ABILITIES': {
+      if (action.uids.length === 0) return state;
+      const drop = new Set(action.uids);
+      return {
+        ...state,
+        selectedAbilities: state.selectedAbilities.filter(a => !drop.has(a.uid)),
+      };
+    }
 
     case 'SET_ABILITY_TIER':
       return {
@@ -489,6 +500,22 @@ export function CharacterProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     autosave(character);
+  }, [character]);
+
+  // Validation sweep: whenever the character changes (e.g. stats reassigned on
+  // the Skills step, year advanced), re-check every owned ability's prereqs.
+  // Any that no longer qualify are auto-removed and broadcast so the UI can
+  // show a notice. Runs after commit; the prune dispatch settles in one pass
+  // because the next sweep finds nothing to remove.
+  useEffect(() => {
+    const ineligible = findIneligibleAbilities(character);
+    if (ineligible.length === 0) return;
+    dispatch({ type: 'PRUNE_ABILITIES', uids: ineligible.map((d) => d.uid) });
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(
+        new CustomEvent('haikyu:abilities-pruned', { detail: { removed: ineligible } }),
+      );
+    }
   }, [character]);
 
   const wrappedDispatch: React.Dispatch<CharacterAction> = React.useCallback(

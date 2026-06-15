@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { CharacterProvider, useCharacter } from './state/characterStore';
 import { CharacterSheet } from './components/CharacterSheet';
 import { SaveControls } from './components/SaveControls';
+import { AutoPruneNotice } from './components/AutoPruneNotice';
 import { PhysicalStep } from './steps/PhysicalStep';
 import { ReachesStep } from './steps/ReachesStep';
 import { SkillsStep } from './steps/SkillsStep';
@@ -284,6 +285,8 @@ function Wizard() {
           </div>
         </aside>
       </div>
+
+      <AutoPruneNotice />
     </div>
   );
 }
