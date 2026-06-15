@@ -165,6 +165,13 @@ All 40 abilities from the "Abilities (WIP)" 2-column table in `Haikyu_ Gauntlet 
 
 ---
 
+### Teammate Chemistry (id: `teammate-chemistry`) — uncapped repeatable
+**Source text:** "Cost: 2 AP. Prereq: N/A." You gain chemistry with a teammate of your choice who also has this ability. Each copy represents chemistry with a different teammate, so the ability is purchasable an unlimited number of times, AP allowance permitting.
+**Interpretation:** Teammate Chemistry now has `repeatable: true`, matching the Fan/Training uncapped-repeat mechanic. Each instance is an independent `SelectedAbility` and `computeSpent` sums `baseCost` per instance, so total cost scales linearly with no per-copy scaling (each copy a flat 2 AP). Previously it had no `repeatable` flag and so defaulted to single-purchase (`maxTimes` 1). No schema change was needed.
+**Date logged:** 2026-06-15
+
+---
+
 ### Hustle / Block Follow — "+" notation in prereqs
 **Source text:** "Prereq: Speed +3.25, Dig +2.5" (Hustle); "Speed +3, Dig +3" (Block Follow).
 **Interpretation:** The `+` prefix before stat values is a formatting artifact, not an addition operator. Interpreted as minimum thresholds: Speed >= 3.25, Dig >= 2.5 etc. All other abilities use `Stat X+` notation consistently.
