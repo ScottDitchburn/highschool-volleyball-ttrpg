@@ -41,13 +41,8 @@ All 40 abilities from the "Abilities (WIP)" 2-column table in `Haikyu_ Gauntlet 
 
 ### Quick Learner (id: `quick-learner`)
 **Source text:** "Cost: 3 AP. Prereq: No Stat 3.75 or higher (5). Add +0.25 to any Stat."
-**Interpretation (superseded 2026-06-16):** Originally read as a *global inverse* constraint — the character must have **no** skill at 3.75+ to take it at all — encoded as `{kind:'noStatAtLeast', min:3.75}`. `(5)` means maxTimes 5; +0.25 to any Stat is `{kind:'statDelta', choose:'any', delta:0.25}`.
-**Date logged:** 2026-06-12
-
-### Quick Learner (id: `quick-learner`) — per-target gate, base-skill basis
-**Source text:** Same as above; the "less than good skills" flavour clarifies intent.
-**Interpretation:** The "No Stat 3.75+" rule is reinterpreted as a **per-target acquisition gate** rather than a global one — and it only ever blocks the *initial pick*. You may add Quick Learner (up to 5×) and direct its +0.25 to **any skill whose BASE value is below 3.75**, even if other skills are already 3.75+. Encoded as a new prereq `{kind:'anyStatBelow', max:3.75}` (eligible while at least one base skill is below the gate); the chooser UI locks targets whose base skill is ≥ 3.75. All thresholds use **base** (assigned) skills, not effective stats, so a Quick Learner's own +0.25 (or another ability's bonus) never trips its own gate — this also keeps the existing "effective stats may exceed 4.00 via bonuses; do not clamp" rule intact. The validation sweep treats `anyStatBelow`/`noStatAtLeast` as acquisition-only gates: an **owned** Quick Learner is **never auto-removed** if its boosted skill later rises (even to 4.0+) — only the initial selection is gated. Old saves using `{kind:'noStatAtLeast'}` are unaffected: that kind still exists in the engine; only Quick Learner's data switched.
-**Date logged:** 2026-06-16
+**Interpretation:** A **global inverse acquisition gate**, encoded as `{kind:'noStatAtLeast', min:3.75}`: Quick Learner cannot be **selected** once any (effective) skill is at 3.75 or higher. `(5)` means maxTimes 5; +0.25 to any Stat is `{kind:'statDelta', choose:'any', delta:0.25}`. The gate restricts **selection only** — the validation sweep treats `noStatAtLeast` as acquisition-only, so an **owned** Quick Learner is **never auto-removed** if a skill later rises (even to 4.0+). (Earlier 2026-06-16 iterations briefly tried a per-target `anyStatBelow` gate with a 4.0 cap-drop and then without it; both were reverted to this global-gate + never-drop model per the final design call.)
+**Date logged:** 2026-06-12 (gate); 2026-06-16 (never-auto-drop sweep behaviour)
 
 ---
 

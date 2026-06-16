@@ -29,16 +29,15 @@ export const ABILITIES: Ability[] = [
     baseCost: 3,
     maxTimes: 5,
     prereqs: [
-      { kind: 'anyStatBelow', max: 3.75 },
+      { kind: 'noStatAtLeast', min: 3.75 },
     ],
     effects: [
       { kind: 'statDelta', choose: 'any', delta: 0.25 },
     ],
     notes:
-      'Per-target gate: the +0.25 may only be applied to a skill whose BASE value ' +
-      'is below 3.75. You may add it to any qualifying skill even if other skills ' +
-      'are already 3.75+. The gate only blocks the initial pick; an owned copy is ' +
-      'never auto-removed if its boosted skill later rises (even to 4.0+). Max 5 times.',
+      'Global inverse gate: cannot be SELECTED once any skill is at 3.75 or higher. ' +
+      'The gate only blocks the initial pick; an owned copy is never auto-removed if a ' +
+      'skill later rises (even to 4.0+). +0.25 to any Stat. Max 5 times.',
   },
 
   // ── Row 2 ──────────────────────────────────────────────────────────────────

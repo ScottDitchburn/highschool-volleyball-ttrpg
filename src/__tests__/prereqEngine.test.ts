@@ -170,28 +170,6 @@ describe('evaluatePrereq: noStatAtLeast (Quick Learner inverse)', () => {
   });
 });
 
-// ── evaluatePrereq: anyStatBelow (Quick Learner per-target gate) ───────────────
-
-describe('evaluatePrereq: anyStatBelow', () => {
-  it('passes when at least one BASE skill is below the threshold', () => {
-    const char = makeChar({ skills: { ...allStats(4.0), Serve: 3.5 } });
-    const result = evaluatePrereq({ kind: 'anyStatBelow', max: 3.75 }, char, allStats(4.0), null);
-    expect(result.met).toBe(true);
-  });
-
-  it('fails when every BASE skill is at or above the threshold', () => {
-    const char = makeChar({ skills: allStats(3.75) });
-    const result = evaluatePrereq({ kind: 'anyStatBelow', max: 3.75 }, char, allStats(3.75), null);
-    expect(result.met).toBe(false);
-  });
-
-  it('fails when no skills assigned yet (no valid target)', () => {
-    const char = makeChar();
-    const result = evaluatePrereq({ kind: 'anyStatBelow', max: 3.75 }, char, null, null);
-    expect(result.met).toBe(false);
-  });
-});
-
 // ── evaluatePrereq: derived ───────────────────────────────────────────────────
 
 describe('evaluatePrereq: derived reach', () => {
@@ -489,10 +467,9 @@ describe('findIneligibleAbilities', () => {
     expect(removed.map((r) => r.uid)).toEqual(['js']);
   });
 
-  // ── Quick Learner: per-target gate + 4.0 cap removal ──────────────────────
+  // ── Quick Learner: global select gate, but owned copies never auto-drop ────
 
-  it('keeps Quick Learner when its boosted skill is raised only to 3.75 (the bug)', () => {
-    // base Serve 3.75 (+0.25 from QL = 4.00 effective, at cap) must NOT remove it.
+  it('keeps Quick Learner when a skill is raised to 3.75 (the bug — no auto-drop)', () => {
     const char = makeChar({
       skills: { ...allStats(3), Serve: 3.75 },
       selectedAbilities: [
@@ -503,7 +480,6 @@ describe('findIneligibleAbilities', () => {
   });
 
   it("keeps Quick Learner whose own +0.25 brings the effective stat to 3.75", () => {
-    // base Serve 3.5 → effective 3.75; the gate is on BASE skills, so it stays.
     const char = makeChar({
       skills: allStats(3.5),
       selectedAbilities: [
@@ -523,9 +499,9 @@ describe('findIneligibleAbilities', () => {
     expect(findIneligibleAbilities(char)).toEqual([]);
   });
 
-  it('does not remove Quick Learner just because a different skill is maxed (per-target)', () => {
+  it('keeps an owned Quick Learner even when another skill is maxed', () => {
     const char = makeChar({
-      skills: { ...allStats(3), Spike: 4.0 }, // Spike maxed, but QL boosts Serve
+      skills: { ...allStats(3), Spike: 4.0 }, // Spike maxed, QL boosts Serve
       selectedAbilities: [
         { uid: 'ql', abilityId: 'quick-learner', tier: 0, chooserSelections: { 0: 'Serve' } },
       ],
@@ -539,6 +515,23 @@ describe('findIneligibleAbilities', () => {
       selectedAbilities: [makeSel('quick-learner', 0, 'ql')], // no chooser selection
     });
     expect(findIneligibleAbilities(char)).toEqual([]);
+  });
+
+  it('cannot SELECT Quick Learner once any skill reaches 3.75 (global gate)', () => {
+    const eligibleChar = makeChar({ skills: allStats(3.5) });
+    expect(
+      evaluateAbility(ABILITY_MAP['quick-learner'], eligibleChar, allStats(3.5), null).eligible,
+    ).toBe(true);
+
+    const blockedChar = makeChar({ skills: { ...allStats(3), Spike: 3.75 } });
+    expect(
+      evaluateAbility(
+        ABILITY_MAP['quick-learner'],
+        blockedChar,
+        { ...allStats(3), Spike: 3.75 },
+        null,
+      ).eligible,
+    ).toBe(false);
   });
 
   it('cascades: dropping a stat removes its dependent and then the chain on top of it', () => {

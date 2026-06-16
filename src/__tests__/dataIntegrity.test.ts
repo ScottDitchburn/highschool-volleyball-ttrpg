@@ -4,7 +4,7 @@ import { ABILITIES, ABILITY_MAP } from '../data/abilities';
 import type { Prereq } from '../types';
 
 const KNOWN_PREREQ_KINDS = new Set<string>([
-  'stat', 'statAny', 'noStatAtLeast', 'anyStatBelow', 'derived', 'ability', 'meta', 'or',
+  'stat', 'statAny', 'noStatAtLeast', 'derived', 'ability', 'meta', 'or',
 ]);
 
 const KNOWN_EFFECT_KINDS = new Set<string>([
