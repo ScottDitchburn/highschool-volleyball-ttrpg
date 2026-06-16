@@ -36,9 +36,9 @@ export const ABILITIES: Ability[] = [
     ],
     notes:
       'Per-target gate: the +0.25 may only be applied to a skill whose BASE value ' +
-      'is below 3.75 (so it cannot push a skill past the 4.0 cap). You may add it ' +
-      'to any qualifying skill even if other skills are already 3.75+. An owned copy ' +
-      'is auto-removed only once its boosted skill reaches the 4.0 cap. Max 5 times.',
+      'is below 3.75. You may add it to any qualifying skill even if other skills ' +
+      'are already 3.75+. The gate only blocks the initial pick; an owned copy is ' +
+      'never auto-removed if its boosted skill later rises (even to 4.0+). Max 5 times.',
   },
 
   // ── Row 2 ──────────────────────────────────────────────────────────────────

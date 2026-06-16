@@ -8,7 +8,6 @@ import type {
   SkillStat,
   DerivedReaches,
   Ability,
-  SelectedAbility,
 } from '../types';
 import { SKILL_STAT_NAMES } from '../types';
 import { ABILITY_MAP } from '../data/abilities';
@@ -405,14 +404,8 @@ export function findIneligibleAbilities(character: Character): IneligibleAbility
         (r) => !r.met && !ACQUISITION_GATE_KINDS.has(r.prereq.kind),
       );
 
-      let reason: string | null =
+      const reason: string | null =
         broken.length > 0 ? broken.map((r) => r.label).join('; ') : null;
-
-      // Per-target cap rule for boost-a-weak-skill abilities (Quick Learner):
-      // drop just this instance once its boosted skill's BASE value hits the cap.
-      if (reason === null) {
-        reason = overCapChooserReason(ability, sel, character.skills);
-      }
 
       if (reason === null) {
         stillKept.push(sel);
@@ -430,40 +423,6 @@ export function findIneligibleAbilities(character: Character): IneligibleAbility
   }
 
   return removed;
-}
-
-/**
- * For an ability with an `anyStatBelow` gate (Quick Learner), returns a removal
- * reason if any stat it boosts has reached the cap (gate.max + bonus delta, e.g.
- * 3.75 + 0.25 = 4.00) in BASE-skill terms. The +0.25 cannot apply past the cap,
- * so that instance is removed. Returns null when nothing is over the cap.
- */
-function overCapChooserReason(
-  ability: Ability,
-  sel: SelectedAbility,
-  baseSkills: SkillStats | null,
-): string | null {
-  if (!baseSkills || !ability.effects) return null;
-  const gate = ability.prereqs.find((p) => p.kind === 'anyStatBelow') as
-    | { kind: 'anyStatBelow'; max: number }
-    | undefined;
-  if (!gate) return null;
-
-  for (let i = 0; i < ability.effects.length; i++) {
-    const effect = ability.effects[i];
-    if (effect.kind !== 'statDelta' || !effect.choose) continue;
-    const chosen = sel.chooserSelections[i];
-    if (!chosen) continue;
-    const cap = gate.max + effect.delta; // 3.75 + 0.25 = 4.00
-    const targets = Array.isArray(chosen) ? (chosen as SkillStat[]) : [chosen as SkillStat];
-    for (const s of targets) {
-      const base = baseSkills[s];
-      if (typeof base === 'number' && base >= cap - 1e-9) {
-        return `${s} reached ${base.toFixed(2)} (at the ${cap.toFixed(2)} cap) — ${ability.name} can't raise it further`;
-      }
-    }
-  }
-  return null;
 }
 
 // ---------------------------------------------------------------------------

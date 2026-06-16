@@ -513,16 +513,14 @@ describe('findIneligibleAbilities', () => {
     expect(findIneligibleAbilities(char)).toEqual([]);
   });
 
-  it('removes a Quick Learner only once its boosted skill reaches the 4.0 cap', () => {
+  it('keeps a Quick Learner even when its boosted skill reaches 4.0 (no auto-drop)', () => {
     const char = makeChar({
       skills: { ...allStats(3), Serve: 4.0 },
       selectedAbilities: [
         { uid: 'ql', abilityId: 'quick-learner', tier: 0, chooserSelections: { 0: 'Serve' } },
       ],
     });
-    const removed = findIneligibleAbilities(char);
-    expect(removed.map((r) => r.uid)).toEqual(['ql']);
-    expect(removed[0].reason).toMatch(/cap/i);
+    expect(findIneligibleAbilities(char)).toEqual([]);
   });
 
   it('does not remove Quick Learner just because a different skill is maxed (per-target)', () => {
