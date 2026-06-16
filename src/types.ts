@@ -117,8 +117,7 @@ export interface APBudget {
 export type Prereq =
   | { kind: 'stat'; stat: SkillStat; min: number }
   | { kind: 'statAny'; min: number }
-  | { kind: 'noStatAtLeast'; min: number }           // inverse — every stat must be below min
-  | { kind: 'anyStatBelow'; max: number }            // Quick Learner — at least one base skill below max (a valid boost target exists)
+  | { kind: 'noStatAtLeast'; min: number }           // inverse — Quick Learner: every stat must be below min
   | { kind: 'derived'; metric: 'standingReach' | 'spikingReach' | 'blockingReach'; min: number }
   | { kind: 'ability'; id: string; minTier?: number }
   | { kind: 'meta'; flag: 'notFirstYear' | 'thirdYear' | 'creationOnly' | 'yearlyOnly' }

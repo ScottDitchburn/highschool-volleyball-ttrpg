@@ -283,7 +283,6 @@ export function AbilitiesStep() {
             isSelected={isSelected}
             instances={instances}
             apRemaining={remaining}
-            baseSkills={character.skills}
             onSelect={() => handleSelect(ability.id)}
             onDeselect={(uid) => handleDeselect(uid)}
             onTierChange={(uid, tier) => handleTierChange(uid, tier)}

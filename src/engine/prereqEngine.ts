@@ -155,26 +155,6 @@ export function evaluatePrereq(
       };
     }
 
-    case 'anyStatBelow': {
-      // Per-target acquisition gate (Quick Learner): there must be at least one
-      // BASE skill below `max` to spend the +0.25 on. Evaluated against base
-      // skills (not effective) so a Quick Learner's own bonus can't close the gate.
-      const base = character.skills;
-      if (!base) {
-        return { prereq, met: false, label: `A stat below ${prereq.max} (no stats assigned)` };
-      }
-      const target = SKILL_STAT_NAMES.find(
-        (s) => typeof base[s] === 'number' && base[s] < prereq.max,
-      );
-      return {
-        prereq,
-        met: !!target,
-        label: target
-          ? `A stat below ${prereq.max} (e.g. ${target} ${base[target]!.toFixed(2)})`
-          : `A stat below ${prereq.max} (all stats at cap)`,
-      };
-    }
-
     case 'derived': {
       if (!derived) {
         return { prereq, met: false, label: `${metricLabel(prereq.metric)} ${prereq.min} cm+ (physical not set)` };
@@ -371,10 +351,11 @@ export interface IneligibleAbility {
  */
 /**
  * Inverse "acquisition gate" prereqs only restrict TAKING an ability — they must
- * not retroactively remove an owned copy when the gate later closes. (Quick
- * Learner's own +0.25 would otherwise trip its own gate the instant it applies.)
+ * not retroactively remove an owned copy when the gate later closes. Quick
+ * Learner can't be SELECTED once a skill hits 3.75, but a copy already owned is
+ * never auto-dropped, even if a skill later rises to 4.0+.
  */
-const ACQUISITION_GATE_KINDS = new Set<Prereq['kind']>(['anyStatBelow', 'noStatAtLeast']);
+const ACQUISITION_GATE_KINDS = new Set<Prereq['kind']>(['noStatAtLeast']);
 
 export function findIneligibleAbilities(character: Character): IneligibleAbility[] {
   let kept = [...character.selectedAbilities];
