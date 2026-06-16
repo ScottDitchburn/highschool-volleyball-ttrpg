@@ -3,7 +3,7 @@
 // Handles: prereq display, tier selector, AP cost, chooser selectors.
 // Supports multi-instance (repeatable) abilities via per-instance controls.
 
-import type { Ability, SelectedAbility, SkillStat } from '../types';
+import type { Ability, SelectedAbility, SkillStat, SkillStats } from '../types';
 import { SKILL_STAT_NAMES } from '../types';
 import type { AbilityEvaluation, PrereqResult } from '../engine/prereqEngine';
 import { cumulativeCost } from '../engine/prereqEngine';
@@ -60,10 +60,20 @@ interface AbilityCardProps {
   isSelected: boolean;
   instances: SelectedAbility[];
   apRemaining: number;
+  /** Base (assigned) skills — used to gate per-target choosers like Quick Learner. */
+  baseSkills?: SkillStats | null;
   onSelect: () => void;
   onDeselect: (uid: string) => void;
   onTierChange: (uid: string, tier: number) => void;
   onChooserChange: (uid: string, effectIndex: number, choice: SkillStat | SkillStat[]) => void;
+}
+
+/** The per-target gate max for a chooser ability (Quick Learner's `anyStatBelow`), if any. */
+function targetGateMax(ability: Ability): number | undefined {
+  const gate = ability.prereqs.find((p) => p.kind === 'anyStatBelow') as
+    | { kind: 'anyStatBelow'; max: number }
+    | undefined;
+  return gate?.max;
 }
 
 // ---------------------------------------------------------------------------
@@ -76,12 +86,14 @@ export function AbilityCard({
   isSelected,
   instances,
   apRemaining,
+  baseSkills,
   onSelect,
   onDeselect,
   onTierChange,
   onChooserChange,
 }: AbilityCardProps) {
   const { prereqResults, eligible, maxedOut, affordable, needsChooser } = evaluation;
+  const gateMax = targetGateMax(ability);
   const hasTiers = (ability.tiers?.length ?? 0) > 0;
   const isRepeatable = ability.repeatable === true || (ability.maxTimes ?? 1) > 1;
   const purchaseCount = instances.length;
@@ -219,6 +231,8 @@ export function AbilityCard({
           instanceIndex={instIdx}
           totalInstances={purchaseCount}
           apRemaining={apRemaining}
+          baseSkills={baseSkills}
+          targetMax={gateMax}
           onDeselect={() => onDeselect(inst.uid)}
           onTierChange={(tier) => onTierChange(inst.uid, tier)}
           onChooserChange={(effectIndex, choice) => onChooserChange(inst.uid, effectIndex, choice)}
@@ -239,6 +253,8 @@ interface InstanceControlsProps {
   instanceIndex: number;
   totalInstances: number;
   apRemaining: number;
+  baseSkills?: SkillStats | null;
+  targetMax?: number;
   onDeselect: () => void;
   onTierChange: (tier: number) => void;
   onChooserChange: (effectIndex: number, choice: SkillStat | SkillStat[]) => void;
@@ -250,6 +266,8 @@ function InstanceControls({
   instanceIndex,
   totalInstances,
   apRemaining,
+  baseSkills,
+  targetMax,
   onDeselect,
   onTierChange,
   onChooserChange,
@@ -307,6 +325,8 @@ function InstanceControls({
             options={options}
             isTwoSkills={isTwoSkills}
             currentChoice={currentChoice}
+            baseSkills={baseSkills}
+            targetMax={targetMax}
             onChange={(choice) => onChooserChange(effectIndex, choice)}
           />
         );
@@ -390,6 +410,9 @@ interface ChooserSelectorProps {
   options: SkillStat[];
   isTwoSkills: boolean;
   currentChoice: SkillStat | SkillStat[] | undefined;
+  /** Base skills + per-target gate max — locks options whose base skill is at/above the gate. */
+  baseSkills?: SkillStats | null;
+  targetMax?: number;
   onChange: (choice: SkillStat | SkillStat[]) => void;
 }
 
@@ -400,8 +423,19 @@ function ChooserSelector({
   options,
   isTwoSkills,
   currentChoice,
+  baseSkills,
+  targetMax,
   onChange,
 }: ChooserSelectorProps) {
+  // A stat is locked as a target when its BASE value is at/above the gate max
+  // (Quick Learner: can't add the bonus to a skill already at 3.75). The
+  // currently-chosen stat is never locked, so existing picks stay changeable.
+  const isLockedTarget = (stat: SkillStat, isChosen: boolean): boolean =>
+    !isChosen &&
+    targetMax !== undefined &&
+    !!baseSkills &&
+    typeof baseSkills[stat] === 'number' &&
+    baseSkills[stat] >= targetMax;
   const label = abilityId === 'aggressive-spiker' && effectIndex === 1
     ? `−0.25 from (Stamina or IQ)`
     : isTwoSkills
@@ -460,14 +494,19 @@ function ChooserSelector({
       <div className="flex flex-wrap gap-1">
         {options.map((stat) => {
           const isChosen = current === stat;
+          const locked = isLockedTarget(stat, isChosen);
           return (
             <button
               key={stat}
-              onClick={() => onChange(stat)}
+              disabled={locked}
+              onClick={() => { if (!locked) onChange(stat); }}
+              title={locked ? `${stat} is already at ${targetMax}+ — can't add the bonus here` : undefined}
               className={`text-xs px-2 py-0.5 rounded border transition-colors
                 ${isChosen
                   ? 'border-orange-500 bg-orange-500/20 text-orange-300 font-bold'
-                  : 'border-charcoal-600 text-charcoal-300 hover:border-orange-500 hover:text-orange-400'
+                  : locked
+                    ? 'border-charcoal-800 text-charcoal-600 cursor-not-allowed'
+                    : 'border-charcoal-600 text-charcoal-300 hover:border-orange-500 hover:text-orange-400'
                 }`}
             >
               {stat}
@@ -475,6 +514,11 @@ function ChooserSelector({
           );
         })}
       </div>
+      {targetMax !== undefined && (
+        <div className="text-[0.7rem] text-charcoal-500">
+          Only skills below {targetMax} can be boosted.
+        </div>
+      )}
     </div>
   );
 }

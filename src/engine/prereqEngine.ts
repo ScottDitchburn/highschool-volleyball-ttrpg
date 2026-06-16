@@ -155,6 +155,26 @@ export function evaluatePrereq(
       };
     }
 
+    case 'anyStatBelow': {
+      // Per-target acquisition gate (Quick Learner): there must be at least one
+      // BASE skill below `max` to spend the +0.25 on. Evaluated against base
+      // skills (not effective) so a Quick Learner's own bonus can't close the gate.
+      const base = character.skills;
+      if (!base) {
+        return { prereq, met: false, label: `A stat below ${prereq.max} (no stats assigned)` };
+      }
+      const target = SKILL_STAT_NAMES.find(
+        (s) => typeof base[s] === 'number' && base[s] < prereq.max,
+      );
+      return {
+        prereq,
+        met: !!target,
+        label: target
+          ? `A stat below ${prereq.max} (e.g. ${target} ${base[target]!.toFixed(2)})`
+          : `A stat below ${prereq.max} (all stats at cap)`,
+      };
+    }
+
     case 'derived': {
       if (!derived) {
         return { prereq, met: false, label: `${metricLabel(prereq.metric)} ${prereq.min} cm+ (physical not set)` };
@@ -349,6 +369,13 @@ export interface IneligibleAbility {
  *
  * Pure: does not mutate the character. The caller decides whether to prune.
  */
+/**
+ * Inverse "acquisition gate" prereqs only restrict TAKING an ability — they must
+ * not retroactively remove an owned copy when the gate later closes. (Quick
+ * Learner's own +0.25 would otherwise trip its own gate the instant it applies.)
+ */
+const ACQUISITION_GATE_KINDS = new Set<Prereq['kind']>(['anyStatBelow', 'noStatAtLeast']);
+
 export function findIneligibleAbilities(character: Character): IneligibleAbility[] {
   let kept = [...character.selectedAbilities];
   const removed: IneligibleAbility[] = [];
@@ -367,20 +394,27 @@ export function findIneligibleAbilities(character: Character): IneligibleAbility
         stillKept.push(sel);
         continue;
       }
-      const { results, allMet } = evaluateAllPrereqs(
+      const { results } = evaluateAllPrereqs(
         ability.prereqs,
         simCharacter,
         simEffective,
         simDerived,
       );
-      if (allMet) {
+      const broken = results.filter(
+        (r) => !r.met && !ACQUISITION_GATE_KINDS.has(r.prereq.kind),
+      );
+
+      const reason: string | null =
+        broken.length > 0 ? broken.map((r) => r.label).join('; ') : null;
+
+      if (reason === null) {
         stillKept.push(sel);
       } else {
         removed.push({
           uid: sel.uid,
           abilityId: sel.abilityId,
           name: ability.name,
-          reason: results.filter((r) => !r.met).map((r) => r.label).join('; '),
+          reason,
         });
         changed = true;
       }
