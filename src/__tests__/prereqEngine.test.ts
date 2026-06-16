@@ -170,6 +170,28 @@ describe('evaluatePrereq: noStatAtLeast (Quick Learner inverse)', () => {
   });
 });
 
+// ── evaluatePrereq: anyStatBelow (Quick Learner per-target gate) ───────────────
+
+describe('evaluatePrereq: anyStatBelow', () => {
+  it('passes when at least one BASE skill is below the threshold', () => {
+    const char = makeChar({ skills: { ...allStats(4.0), Serve: 3.5 } });
+    const result = evaluatePrereq({ kind: 'anyStatBelow', max: 3.75 }, char, allStats(4.0), null);
+    expect(result.met).toBe(true);
+  });
+
+  it('fails when every BASE skill is at or above the threshold', () => {
+    const char = makeChar({ skills: allStats(3.75) });
+    const result = evaluatePrereq({ kind: 'anyStatBelow', max: 3.75 }, char, allStats(3.75), null);
+    expect(result.met).toBe(false);
+  });
+
+  it('fails when no skills assigned yet (no valid target)', () => {
+    const char = makeChar();
+    const result = evaluatePrereq({ kind: 'anyStatBelow', max: 3.75 }, char, null, null);
+    expect(result.met).toBe(false);
+  });
+});
+
 // ── evaluatePrereq: derived ───────────────────────────────────────────────────
 
 describe('evaluatePrereq: derived reach', () => {
@@ -401,7 +423,7 @@ describe('evaluateAbility: maxedOut', () => {
 
   it('quick-learner (maxTimes=5) is not maxed at 4 purchases, maxed at 5', () => {
     const ability = ABILITY_MAP['quick-learner'];
-    const statsOk = allStats(3.5); // noStatAtLeast 3.75: all 3.5 => no stat >= 3.75 => passes
+    const statsOk = allStats(3.5); // anyStatBelow 3.75: a 3.5 skill is a valid target
 
     const char4 = makeChar({
       selectedAbilities: Array.from({ length: 4 }, (_, i) => makeSel('quick-learner', 0, 'u' + i)),
@@ -465,6 +487,60 @@ describe('findIneligibleAbilities', () => {
     });
     const removed = findIneligibleAbilities(char);
     expect(removed.map((r) => r.uid)).toEqual(['js']);
+  });
+
+  // ── Quick Learner: per-target gate + 4.0 cap removal ──────────────────────
+
+  it('keeps Quick Learner when its boosted skill is raised only to 3.75 (the bug)', () => {
+    // base Serve 3.75 (+0.25 from QL = 4.00 effective, at cap) must NOT remove it.
+    const char = makeChar({
+      skills: { ...allStats(3), Serve: 3.75 },
+      selectedAbilities: [
+        { uid: 'ql', abilityId: 'quick-learner', tier: 0, chooserSelections: { 0: 'Serve' } },
+      ],
+    });
+    expect(findIneligibleAbilities(char)).toEqual([]);
+  });
+
+  it("keeps Quick Learner whose own +0.25 brings the effective stat to 3.75", () => {
+    // base Serve 3.5 → effective 3.75; the gate is on BASE skills, so it stays.
+    const char = makeChar({
+      skills: allStats(3.5),
+      selectedAbilities: [
+        { uid: 'ql', abilityId: 'quick-learner', tier: 0, chooserSelections: { 0: 'Serve' } },
+      ],
+    });
+    expect(findIneligibleAbilities(char)).toEqual([]);
+  });
+
+  it('removes a Quick Learner only once its boosted skill reaches the 4.0 cap', () => {
+    const char = makeChar({
+      skills: { ...allStats(3), Serve: 4.0 },
+      selectedAbilities: [
+        { uid: 'ql', abilityId: 'quick-learner', tier: 0, chooserSelections: { 0: 'Serve' } },
+      ],
+    });
+    const removed = findIneligibleAbilities(char);
+    expect(removed.map((r) => r.uid)).toEqual(['ql']);
+    expect(removed[0].reason).toMatch(/cap/i);
+  });
+
+  it('does not remove Quick Learner just because a different skill is maxed (per-target)', () => {
+    const char = makeChar({
+      skills: { ...allStats(3), Spike: 4.0 }, // Spike maxed, but QL boosts Serve
+      selectedAbilities: [
+        { uid: 'ql', abilityId: 'quick-learner', tier: 0, chooserSelections: { 0: 'Serve' } },
+      ],
+    });
+    expect(findIneligibleAbilities(char)).toEqual([]);
+  });
+
+  it('leaves an unallocated Quick Learner alone (no target chosen yet)', () => {
+    const char = makeChar({
+      skills: { ...allStats(3), Serve: 4.0 },
+      selectedAbilities: [makeSel('quick-learner', 0, 'ql')], // no chooser selection
+    });
+    expect(findIneligibleAbilities(char)).toEqual([]);
   });
 
   it('cascades: dropping a stat removes its dependent and then the chain on top of it', () => {

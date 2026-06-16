@@ -8,6 +8,7 @@ import type {
   SkillStat,
   DerivedReaches,
   Ability,
+  SelectedAbility,
 } from '../types';
 import { SKILL_STAT_NAMES } from '../types';
 import { ABILITY_MAP } from '../data/abilities';
@@ -152,6 +153,26 @@ export function evaluatePrereq(
         label: highStat
           ? `No Stat ${prereq.min}+ (${highStat} is ${effectiveStats[highStat].toFixed(2)} -- fails)`
           : `No Stat ${prereq.min}+ (all below ${prereq.min} -- OK)`,
+      };
+    }
+
+    case 'anyStatBelow': {
+      // Per-target acquisition gate (Quick Learner): there must be at least one
+      // BASE skill below `max` to spend the +0.25 on. Evaluated against base
+      // skills (not effective) so a Quick Learner's own bonus can't close the gate.
+      const base = character.skills;
+      if (!base) {
+        return { prereq, met: false, label: `A stat below ${prereq.max} (no stats assigned)` };
+      }
+      const target = SKILL_STAT_NAMES.find(
+        (s) => typeof base[s] === 'number' && base[s] < prereq.max,
+      );
+      return {
+        prereq,
+        met: !!target,
+        label: target
+          ? `A stat below ${prereq.max} (e.g. ${target} ${base[target]!.toFixed(2)})`
+          : `A stat below ${prereq.max} (all stats at cap)`,
       };
     }
 
@@ -349,6 +370,13 @@ export interface IneligibleAbility {
  *
  * Pure: does not mutate the character. The caller decides whether to prune.
  */
+/**
+ * Inverse "acquisition gate" prereqs only restrict TAKING an ability — they must
+ * not retroactively remove an owned copy when the gate later closes. (Quick
+ * Learner's own +0.25 would otherwise trip its own gate the instant it applies.)
+ */
+const ACQUISITION_GATE_KINDS = new Set<Prereq['kind']>(['anyStatBelow', 'noStatAtLeast']);
+
 export function findIneligibleAbilities(character: Character): IneligibleAbility[] {
   let kept = [...character.selectedAbilities];
   const removed: IneligibleAbility[] = [];
@@ -367,20 +395,33 @@ export function findIneligibleAbilities(character: Character): IneligibleAbility
         stillKept.push(sel);
         continue;
       }
-      const { results, allMet } = evaluateAllPrereqs(
+      const { results } = evaluateAllPrereqs(
         ability.prereqs,
         simCharacter,
         simEffective,
         simDerived,
       );
-      if (allMet) {
+      const broken = results.filter(
+        (r) => !r.met && !ACQUISITION_GATE_KINDS.has(r.prereq.kind),
+      );
+
+      let reason: string | null =
+        broken.length > 0 ? broken.map((r) => r.label).join('; ') : null;
+
+      // Per-target cap rule for boost-a-weak-skill abilities (Quick Learner):
+      // drop just this instance once its boosted skill's BASE value hits the cap.
+      if (reason === null) {
+        reason = overCapChooserReason(ability, sel, character.skills);
+      }
+
+      if (reason === null) {
         stillKept.push(sel);
       } else {
         removed.push({
           uid: sel.uid,
           abilityId: sel.abilityId,
           name: ability.name,
-          reason: results.filter((r) => !r.met).map((r) => r.label).join('; '),
+          reason,
         });
         changed = true;
       }
@@ -389,6 +430,40 @@ export function findIneligibleAbilities(character: Character): IneligibleAbility
   }
 
   return removed;
+}
+
+/**
+ * For an ability with an `anyStatBelow` gate (Quick Learner), returns a removal
+ * reason if any stat it boosts has reached the cap (gate.max + bonus delta, e.g.
+ * 3.75 + 0.25 = 4.00) in BASE-skill terms. The +0.25 cannot apply past the cap,
+ * so that instance is removed. Returns null when nothing is over the cap.
+ */
+function overCapChooserReason(
+  ability: Ability,
+  sel: SelectedAbility,
+  baseSkills: SkillStats | null,
+): string | null {
+  if (!baseSkills || !ability.effects) return null;
+  const gate = ability.prereqs.find((p) => p.kind === 'anyStatBelow') as
+    | { kind: 'anyStatBelow'; max: number }
+    | undefined;
+  if (!gate) return null;
+
+  for (let i = 0; i < ability.effects.length; i++) {
+    const effect = ability.effects[i];
+    if (effect.kind !== 'statDelta' || !effect.choose) continue;
+    const chosen = sel.chooserSelections[i];
+    if (!chosen) continue;
+    const cap = gate.max + effect.delta; // 3.75 + 0.25 = 4.00
+    const targets = Array.isArray(chosen) ? (chosen as SkillStat[]) : [chosen as SkillStat];
+    for (const s of targets) {
+      const base = baseSkills[s];
+      if (typeof base === 'number' && base >= cap - 1e-9) {
+        return `${s} reached ${base.toFixed(2)} (at the ${cap.toFixed(2)} cap) — ${ability.name} can't raise it further`;
+      }
+    }
+  }
+  return null;
 }
 
 // ---------------------------------------------------------------------------

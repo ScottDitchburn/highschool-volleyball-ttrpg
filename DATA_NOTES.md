@@ -41,8 +41,13 @@ All 40 abilities from the "Abilities (WIP)" 2-column table in `Haikyu_ Gauntlet 
 
 ### Quick Learner (id: `quick-learner`)
 **Source text:** "Cost: 3 AP. Prereq: No Stat 3.75 or higher (5). Add +0.25 to any Stat."
-**Interpretation:** The prereq is an *inverse* constraint: the character must have **no** skill stat at 3.75 or higher. Encoded as `{kind:'noStatAtLeast', min:3.75}`. This is the only inverse prereq in the system. `(5)` means maxTimes 5. +0.25 to any Stat encoded as `{kind:'statDelta', choose:'any', delta:0.25}`.
+**Interpretation (superseded 2026-06-16):** Originally read as a *global inverse* constraint — the character must have **no** skill at 3.75+ to take it at all — encoded as `{kind:'noStatAtLeast', min:3.75}`. `(5)` means maxTimes 5; +0.25 to any Stat is `{kind:'statDelta', choose:'any', delta:0.25}`.
 **Date logged:** 2026-06-12
+
+### Quick Learner (id: `quick-learner`) — per-target gate, base-skill basis
+**Source text:** Same as above; the "less than good skills" flavour clarifies intent.
+**Interpretation:** The "No Stat 3.75+" rule is reinterpreted as a **per-target** acquisition gate rather than a global one. You may add Quick Learner (up to 5×) and direct its +0.25 to **any skill whose BASE value is below 3.75**, even if other skills are already 3.75+. Encoded as a new prereq `{kind:'anyStatBelow', max:3.75}` (eligible while at least one base skill is below the gate); the chooser UI locks targets whose base skill is ≥ 3.75. All thresholds use **base** (assigned) skills, not effective stats, so a Quick Learner's own +0.25 (or another ability's bonus) never trips its own gate — this also keeps the existing "effective stats may exceed 4.00 via bonuses; do not clamp" rule intact. The validation sweep treats `anyStatBelow`/`noStatAtLeast` as acquisition-only gates (they never auto-remove an owned copy). A purchased copy is auto-removed **only** once the skill it boosts reaches the 4.00 cap (gate.max 3.75 + bonus delta 0.25), and then only the instances targeting that skill. Old saves using `{kind:'noStatAtLeast'}` are unaffected: that kind still exists in the engine; only Quick Learner's data switched.
+**Date logged:** 2026-06-16
 
 ---
 
