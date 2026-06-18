@@ -6,6 +6,7 @@ import { CoachApp } from './coach/CoachApp';
 import { CharacterSheet } from './components/CharacterSheet';
 import { SaveControls } from './components/SaveControls';
 import { AutoPruneNotice } from './components/AutoPruneNotice';
+import { InfoWidget } from './components/InfoWidget';
 import { PhysicalStep } from './steps/PhysicalStep';
 import { ReachesStep } from './steps/ReachesStep';
 import { SkillsStep } from './steps/SkillsStep';
@@ -225,6 +226,7 @@ function Wizard() {
           <span className="text-charcoal-500 text-sm ml-2">Gauntlet Builder</span>
         </div>
         <div className="flex items-center gap-3">
+          <InfoWidget />
           <span className="text-charcoal-400 text-sm hidden sm:block truncate max-w-[12rem]">
             {character.name || 'Unnamed Player'}
           </span>
