@@ -47,6 +47,7 @@ function makeSel(abilityId: string, tier = 0, uid = 'uid-' + abilityId): Selecte
 function makeDerived(overrides: Partial<DerivedReaches> = {}): DerivedReaches {
   return {
     effectiveHeightCm: 210,
+    effectiveVerticalCm: 90,
     standingReachCm: 273, spikingReachCm: 363, blockingReachCm: 337.5,
     blockingCoef: 0.85, ...overrides,
   };
@@ -446,7 +447,10 @@ describe('findIneligibleAbilities', () => {
     // double-jump absent it must be reported, citing Double Jump.
     const char = makeChar({
       skills: allStats(3),
-      physical: { heightRoll: 30, verticalRoll: 20, heightCm: 210, verticalCm: 105 },
+      // only standingReach (height-derived) matters here; table values for roll 30:
+      // 208 cm, modifier -17 (raw vertical 20 -> effective 3 -> 48 cm).
+      // standing reach = 1.3 * 208 = 270.4, still clears the 260 cm prereq.
+      physical: { heightRoll: 30, verticalRoll: 20, heightCm: 208, verticalModifier: -17, verticalCm: 48 },
       selectedAbilities: [makeSel('standing-block', 0, 'sb')],
     });
     const removed = findIneligibleAbilities(char);
@@ -540,7 +544,8 @@ describe('findIneligibleAbilities', () => {
     // double-jump fails its derived prereq AND standing-block fails too — both go.
     const char = makeChar({
       skills: allStats(3),
-      physical: { heightRoll: 0, verticalRoll: 0, heightCm: 150, verticalCm: 45 }, // reach 195
+      // shortest possible character (table roll 3): 154 cm, modifier +7.
+      physical: { heightRoll: 3, verticalRoll: 3, heightCm: 154, verticalModifier: 7, verticalCm: 75 }, // reach 200.2
       selectedAbilities: [
         makeSel('double-jump', 3, 'dj'),
         makeSel('standing-block', 0, 'sb'),

@@ -28,11 +28,14 @@ Interpretations to be logged when `src/data/abilities.ts` is authored in Milesto
 
 _Date logged: 2026-06-12_
 
-All 40 abilities from the "Abilities (WIP)" 2-column table in `Haikyu_ Gauntlet RPG v.2.md` are encoded.
+All 40 abilities from the "Abilities (WIP)" 2-column table in `Haikyu_ Gauntlet RPG v.2.md` were encoded here.
+They were revised and extended to 45 for v.3 — see the **v.3 rules update** section at the end of this file,
+which supersedes the v.2 entries below wherever the two disagree.
 
 ---
 
 ### Training (id: `training`)
+> **Superseded by v.3** — see "Training (v.3)" below.
 **Source text:** "Cost: 5 AP. Prereq: N/A. You train hard each practice and even on your time off. Add +0.25 to any Stat."
 **Interpretation:** No `maxTimes` is listed. Encoded with no `maxTimes` field (undefined = unlimited). +0.25 to any Stat encoded as `{kind:'statDelta', choose:'any', delta:0.25}`.
 **Date logged:** 2026-06-12
@@ -40,6 +43,7 @@ All 40 abilities from the "Abilities (WIP)" 2-column table in `Haikyu_ Gauntlet 
 ---
 
 ### Quick Learner (id: `quick-learner`)
+> **Superseded by v.3** — see "Quick Learner (v.3)" below.
 **Source text:** "Cost: 3 AP. Prereq: No Stat 3.75 or higher (5). Add +0.25 to any Stat."
 **Interpretation:** A **global inverse acquisition gate**, encoded as `{kind:'noStatAtLeast', min:3.75}`: Quick Learner cannot be **selected** once any (effective) skill is at 3.75 or higher. `(5)` means maxTimes 5; +0.25 to any Stat is `{kind:'statDelta', choose:'any', delta:0.25}`. The gate restricts **selection only** — the validation sweep treats `noStatAtLeast` as acquisition-only, so an **owned** Quick Learner is **never auto-removed** if a skill later rises (even to 4.0+). (Earlier 2026-06-16 iterations briefly tried a per-target `anyStatBelow` gate with a 4.0 cap-drop and then without it; both were reverted to this global-gate + never-drop model per the final design call.)
 **Date logged:** 2026-06-12 (gate); 2026-06-16 (never-auto-drop sweep behaviour)
@@ -96,6 +100,8 @@ All 40 abilities from the "Abilities (WIP)" 2-column table in `Haikyu_ Gauntlet 
 ---
 
 ### Aggressive Spiker (id: `aggressive-spiker`)
+> **Superseded** — the `['Dig','Block']` placeholder described below is gone; see
+> "Aggressive Spiker — chooser placeholder removed" in the v.3 section.
 **Source text:** "Cost: 3 AP. Prereq: Power 3.25+, Spike 3.25+ (1). Add +0.25 to your Power, and subtract -0.25 from your Stamina or IQ."
 **Interpretation:** The +0.25 Power is encoded as `{kind:'statDelta', stat:'Power', delta:0.25}`. The −0.25 penalty requires a Stamina/IQ chooser. However, `types.ts` defines `Effect.choose` as `'any' | 'twoSkills' | ['Dig','Block']` — there is no `['Stamina','IQ']` literal variant. Since the type schema cannot be changed without downstream impact, the penalty effect is encoded as `{kind:'statDelta', choose:['Dig','Block'], delta:-0.25}` purely to satisfy the TypeScript type. **The runtime engine MUST override the chooser to present Stamina/IQ options, consulting the `notes` field.** This is a known schema gap — the `Effect` type would need `'choose?: ... | [Stamina,IQ]'` to fully support this ability without a notes-based workaround.
 **Date logged:** 2026-06-12
@@ -182,3 +188,132 @@ All 40 abilities from the "Abilities (WIP)" 2-column table in `Haikyu_ Gauntlet 
 ### Abilities with no maxTimes
 The following abilities have no `(N)` in the source and therefore have no `maxTimes` field (purchasable unlimited times unless otherwise noted): Training, Jump Serve, Read Block, Jump Float Serve, Captain Reliability, Boom Jump Technique, Growth Spurt, Route Running (MB), Route Running (WS), Emergency Setting, Tooling the Block, Guess Blocking, Out of System Hitting, Hitting Angles, Setter Dumps, Athletic Setting, Hustle, Block Follow, Block Breaker, Mental Fortitude, Fan, Nationally Recognized, Teammate Chemistry, Aura, Double Jump, Footage Maestro (maxTimes:3), Form Reading, Backrow Attack, Setting Form, Bully, Antagonize.
 **Date logged:** 2026-06-12
+
+---
+
+# v.3 rules update
+
+_Source: `Haikyu_ Gauntlet RPG v.3.md` (replaces `Haikyu_ Gauntlet RPG v.2.md`).
+Date logged: 2026-09-16._
+
+The ability table grew from 40 to **45** abilities. Costs, effects and the schema
+changed as recorded below. Where an entry above (v.2) disagrees with an entry here,
+**this section wins**.
+
+## Schema additions (`src/types.ts`)
+
+| Addition | Why |
+|----------|-----|
+| `ChooseSpec = 'any' \| 'twoSkills' \| SkillStat[]` | `statDelta.choose` now takes an explicit stat list, so Training/Quick Learner's six-skill chooser and Aggressive Spiker's Stamina/IQ pair are expressible directly. Replaces the old `['Dig','Block']`-only literal. |
+| `{ kind: 'verticalDelta'; cm }` | Weight Lifting's "+3cm to your Vertical Jump". Applied to the **effective** vertical jump, exactly as `heightDelta` is applied to effective height, so it flows into Spiking and Blocking Reach. |
+| `{ kind: 'optionChoice'; prompt; options }` + `AbilityOption` + `OptionEffect` | "Choose one of the following": one option is recorded **per purchase**. Options may carry their own effects (Weight Lifting) or be purely narrative (Flexibility). |
+| `DerivedReaches.effectiveVerticalCm` | Base vertical + `verticalDelta`. Surfaced on the live sheet, Reaches step, Review, print sheet and Discord export next to effective height. |
+| `SelectedAbility.chooserSelections` widened to `SkillStat \| SkillStat[] \| string` | An `optionChoice` records the chosen `AbilityOption.id`; stat choosers are unchanged. |
+
+`src/engine/effects.ts` is new: it is the single implementation of "apply the selected
+abilities' effects", shared by the store selectors and the prereq engine's simulation
+(previously duplicated, which would have needed every new effect kind taught twice).
+`src/utils/abilityChoices.ts` is the single place that renders a recorded choice as text
+(ability card, Review, print sheet, Discord export, coach roster).
+
+**Stale picks from a v.2 save:** a recorded pick a chooser no longer offers (e.g. a v.2
+Training on Power) grants nothing and the purchase is reported as still owing a choice,
+so the player re-picks rather than silently keeping a bonus the rules withdrew. Fixed
+effects on the same ability (the Stamina cost) still apply.
+
+**Unresolved choices** behave exactly as the existing stat choosers do: nothing is applied,
+`evaluateAbility().needsChooser` is true, and a repeatable ability cannot be bought again
+until the outstanding choice is made.
+
+**Clamping:** effective stats are **floored at 1.00** (`STAT_FLOOR` in
+`src/engine/effects.ts`) and have **no ceiling**. The existing convention allowed stats above
+4.00 via bonuses and is unchanged. v.3's Stamina costs make sub-1.00 values reachable (e.g.
+three Weight Lifting purchases = −1.5 Stamina); the source gives no floor, so this is a
+design call: a stat can never go below the 4d4 minimum of 1.00. The floor is applied once to
+the summed total of all deltas, so it is independent of purchase order: a bonus only lifts a
+floored stat once the summed penalties have been recovered (base 1.0, −0.5, +0.25 → 1.0).
+Prereqs evaluate against the floored value.
+**Date logged:** 2026-09-16 (floor confirmed by the rules author).
+
+---
+
+### Training (v.3) (id: `training`)
+**Source text:** "Training Cost: 6 AP Prereq: N/A  You train hard each practice and even on your time off. Add +0.25 to Serve, Spike, Set, Pass, Dig, or Block Stats. Decrease your Stamina by -0.25."
+**Interpretation:** Cost 5 → **6 AP**. The chooser is narrowed from "any Stat" to the six VB skills, encoded as `choose: VB_SKILLS` (`['Serve','Spike','Set','Pass','Dig','Block']`) — Speed, Power, IQ and Stamina are no longer selectable. A second, fixed effect `{stat:'Stamina', delta:-0.25}` applies on **every** purchase and stacks with repeats. Still `repeatable: true` (no "(N)" in the source).
+**Date logged:** 2026-09-16
+
+---
+
+### Quick Learner (v.3) (id: `quick-learner`)
+**Source text:** "Quick Learner: Cost: 4 AP Prereq: No VB Stat 3.75 or higher (5) … Add +0.25 to Serve, Spike, Set, Pass, Dig, or Block Stats. Decrease your Stamina by -0.25."
+**Interpretation:** Cost 3 → **4 AP**. "VB" is shorthand for *volleyball*, i.e. the character's stats generally — **not** the six-skill subset — so the existing global gate `{kind:'noStatAtLeast', min:3.75}` over all ten stats is unchanged (rules-owner confirmed). `(5)` → `maxTimes: 5`, unchanged. Same six-skill chooser and −0.25 Stamina as Training.
+**Date logged:** 2026-09-16
+
+---
+
+### Rest (id: `rest`) — new in v.3
+**Source text:** "Rest: Cost: 2 AP Prereq: N/A  You often learn it is best to let your body recover, increase your Stamina Stat by +0.25."
+**Interpretation:** 2 AP, no prereqs, single fixed effect `{stat:'Stamina', delta:+0.25}`. The source shows **no "(N)"**, so it follows the repo's existing convention for uncapped abilities (Training, Fan, Teammate Chemistry): `repeatable: true`, no `maxTimes`, a flat 2 AP per copy. It is the natural counterweight to the new Stamina costs on Training / Quick Learner / Weight Lifting / Game Study.
+**Date logged:** 2026-09-16
+
+---
+
+### Weight Lifting (id: `weight-lifting`) — new in v.3
+**Source text:** "Weight Lifting: Cost: 3 AP Prereq: N/A (3)  You take extra time to hone your physique. Either add +0.25 to your Speed or Power Stats, or add +3cm to your Vertical Jump. Decrease your Stamina by -0.5."
+**Interpretation:** 3 AP, no prereq, `(3)` → `maxTimes: 3`. Because one of the three choices is a **centimetre** bonus rather than a stat, it cannot be a `statDelta` chooser; it is encoded as an `optionChoice` with three options — `speed` (+0.25 Speed), `power` (+0.25 Power), `vertical` (`verticalDelta` +3 cm). The Vertical Jump bonus raises `effectiveVerticalCm`, and therefore Spiking Reach (`1.3×H + V`) and Blocking Reach (`1.3×H + coef×V`, including Swing Block's 0.9). Standing Reach is height-only and unaffected. The −0.5 Stamina is a separate fixed effect that applies on every purchase **regardless of the pick**, including while the pick is still outstanding.
+**Date logged:** 2026-09-16
+
+---
+
+### Game Study (id: `game-study`) — new in v.3
+**Source text:** "Game Study: Cost: 2 AP Prereq: N/A (3)  You are an avid watcher of all types of volleyball matches. Increase your IQ by +0.25 and decrease your Stamina by 0.25"
+**Interpretation:** 2 AP, no prereq, `(3)` → `maxTimes: 3`. Two fixed effects (+0.25 IQ, −0.25 Stamina), no chooser. The source omits the minus sign on the Stamina figure ("decrease … by 0.25"); read as −0.25, matching the wording of Training and Quick Learner.
+**Date logged:** 2026-09-16
+
+---
+
+### Flexibility (id: `flexibility`) — new in v.3
+**Source text:** "Flexibility: Cost: 4 AP Prereq: Stamina 3.25+  Your dedication to stretches allow you to control your body in opportune ways. Choose one of the following:  You inflict major spin on every spike and serve, causing it to bounce and curve widely. / You are able to rotate your core and shoulders midair, opening up new hitting angles."
+**Interpretation:** 4 AP, prereq `{stat:'Stamina', min:3.25}`. The source lists **no "(N)"**; per the rules owner this ability is capped at **two purchases** (`maxTimes: 2`) and each purchase records one of the two options — the two purchases may pick the same option or different ones. Encoded as an `optionChoice` whose options (`spin`, `midair-rotation`) carry **no effects**: both are narrative only, with the source sentence stored in each option's `detail` for the card tooltip and print sheet. The recorded pick is shown on the ability card, Review, print sheet, Discord export and coach roster.
+**Date logged:** 2026-09-16
+
+---
+
+### Playcalling (id: `playcalling`) — new in v.3
+**Source text:** "Playcalling: Cost: 2 AP Prereq: IQ 3+, Set 3.5+  You learn and are able to call upon combination plays to give your hitters an advantage.  Tier / Additional Cost / Effect: I 0 AP Kageyama Plays, II 2 AP Oikawa Plays, III 3 AP Kenma Plays"
+**Interpretation:** 2 AP base with compound AND prereqs (IQ ≥ 3 **and** Set ≥ 3.5). Three tiers; Tier I has `addCost: 0` (the base cost covers it), matching every other tiered ability. Cumulative cost: Tier I = 2 AP, Tier II = 4 AP, Tier III = 7 AP. In-play only — no creation-time stat delta.
+**Date logged:** 2026-09-16
+
+---
+
+### Boom Jump Technique (id: `boom-jump-technique`) / Growth Spurt (id: `growth-spurt`) — re-costed in v.3
+**Source text:** "Boom Jump Technique: Cost: ~~4~~ 7 AP"; "Growth Spurt: Cost: ~~5~~ 9 AP" (struck-through old values in the source).
+**Interpretation:** Base costs only: 4 → **7 AP** and 5 → **9 AP**. Their effects are unchanged (+6 cm Spiking Reach, +8 cm Height).
+**Date logged:** 2026-09-16
+
+---
+
+### Aggressive Spiker — chooser placeholder removed (id: `aggressive-spiker`)
+**Source text:** Unchanged from v.2: "…Add +0.25 to your Power, and subtract -0.25 from your Stamina or IQ".
+**Interpretation:** No rules change — but now that `choose` accepts an explicit `SkillStat[]`, the ability is encoded honestly as `{kind:'statDelta', choose:['Stamina','IQ'], delta:-0.25}`. The old `['Dig','Block']` placeholder, the `getChooserOptions()` special case and the hard-coded card label that all existed to work around the schema gap are deleted. Behaviour is identical; the v.2 entry above is superseded.
+**Date logged:** 2026-09-16
+
+---
+
+### Antagonize (id: `antagonize`) — wording only
+**Source text:** v.3 adds a duration: "reduce one of their Stats by -0.5 **for the game**."
+**Interpretation:** No mechanical change in the builder (the effect was, and remains, an inter-character in-play effect with no creation-time delta). The duration is recorded in the ability's `notes`.
+**Date logged:** 2026-09-16
+
+---
+
+### Physical Attributes Table — "Height − Vert Jump Modifier" column (v.3)
+**Source text:** A third column added to the Physical Attributes Table (+7 at roll 3 … −17 at roll 30).
+**Interpretation:** **Out of scope for this entry** — implemented separately alongside the physical-roll code. `PhysicalAttributes.verticalCm` remains the base table value; ability bonuses are layered on top of it in the effective/derived layer (`effectiveVerticalCm`).
+**Date logged:** 2026-09-16
+
+---
+
+### Abilities with no maxTimes (v.3 revision)
+Unchanged from the v.2 list above, with these additions: **Rest** is uncapped (`repeatable: true`, no "(N)" in the source); **Weight Lifting** and **Game Study** are `maxTimes: 3` from their "(3)"; **Flexibility** is `maxTimes: 2` by rules-owner decision despite no "(N)"; **Playcalling** has no "(N)" and is a single purchase like the other tiered abilities.
+**Date logged:** 2026-09-16

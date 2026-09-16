@@ -2,7 +2,7 @@
 // Reads from useCharacter(); stubs where data is absent.
 import React from 'react';
 import { useCharacter } from '../state/characterStore';
-import { SKILL_STAT_NAMES } from '../types';
+import { SKILL_STAT_NAMES, formatVerticalModifier } from '../types';
 import { cmDual } from '../utils/units';
 
 interface Props {
@@ -77,7 +77,19 @@ export function CharacterSheet({ collapsible = false }: Props) {
           </span>
           <span className="text-charcoal-400">Vertical</span>
           <span className="font-mono text-right">
-            {physical ? cmDual(physical.verticalCm, 0) : '—'}
+            {physical ? (
+              <>
+                {cmDual(derivedReaches?.effectiveVerticalCm ?? physical.verticalCm, 0)}
+                {derivedReaches && derivedReaches.effectiveVerticalCm > physical.verticalCm && (
+                  <span className="text-orange-400 ml-1">
+                    (+{(derivedReaches.effectiveVerticalCm - physical.verticalCm).toFixed(0)})
+                  </span>
+                )}
+                <span className="text-charcoal-500 ml-1">
+                  (mod {formatVerticalModifier(physical.verticalModifier)})
+                </span>
+              </>
+            ) : '—'}
           </span>
         </div>
       </section>

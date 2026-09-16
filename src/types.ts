@@ -1,5 +1,5 @@
 // ─────────────────────────────────────────────────────────────────────────────
-// Haikyū: Gauntlet RPG v2 — Domain Types
+// Haikyū: Gauntlet RPG v3 — Domain Types
 // All derived from PLAN.md §2 / §3.  Do NOT edit the schema below without
 // updating DATA_NOTES.md and the abilities data module.
 // ─────────────────────────────────────────────────────────────────────────────
@@ -28,10 +28,19 @@ export interface PhysicalPool {
 
 export interface PhysicalAttributes {
   heightRoll: number;   // 3–30, assigned from pool
-  verticalRoll: number; // 3–30, assigned from pool
-  /** Height in cm = 150 + 2 × heightRoll */
+  /** Raw 3d10 vertical roll (3–30) as assigned from the pool, BEFORE the modifier. */
+  verticalRoll: number;
+  /** Height in cm = 148 + 2 × heightRoll (Physical Attributes Table) */
   heightCm: number;
-  /** Vertical jump in cm = 45 + 3 × verticalRoll */
+  /**
+   * v.3 "Height – Vert Jump Modifier": looked up from the HEIGHT roll and added
+   * to the vertical roll (in roll units). Range +7 (height roll 3) … −17 (30).
+   */
+  verticalModifier: number;
+  /**
+   * Vertical jump in cm = 39 + 3 × clamp(verticalRoll + verticalModifier, 3, 30).
+   * NOTE: derived from the MODIFIED roll (v.3 rule), not the raw roll.
+   */
   verticalCm: number;
 }
 
@@ -40,6 +49,8 @@ export interface PhysicalAttributes {
 export interface DerivedReaches {
   /** Effective height in cm (base + ability height bonuses e.g. Growth Spurt) */
   effectiveHeightCm: number;
+  /** Effective vertical jump in cm (base + ability vertical bonuses e.g. Weight Lifting) */
+  effectiveVerticalCm: number;
   /** 1.3 × Height */
   standingReachCm: number;
   /** 1.3 × Height + Vertical */
@@ -66,6 +77,22 @@ export const SKILL_STAT_NAMES = [
 ] as const;
 
 export type SkillStat = typeof SKILL_STAT_NAMES[number];
+
+/**
+ * The six volleyball skill stats (v.3 "VB Stats" in the ability text).
+ * Training and Quick Learner may only raise one of these six — v.3 narrowed
+ * them from "any Stat". Speed / Power / IQ / Stamina are NOT valid targets.
+ */
+export const VB_SKILL_STAT_NAMES = [
+  'Serve',
+  'Spike',
+  'Set',
+  'Pass',
+  'Dig',
+  'Block',
+] as const;
+
+export type VbSkillStat = typeof VB_SKILL_STAT_NAMES[number];
 
 /**
  * A single 4d4 pool roll result.
@@ -123,11 +150,49 @@ export type Prereq =
   | { kind: 'meta'; flag: 'notFirstYear' | 'thirdYear' | 'creationOnly' | 'yearlyOnly' }
   | { kind: 'or'; any: Prereq[] };
 
-export type Effect =
-  | { kind: 'statDelta'; stat?: SkillStat; choose?: 'any' | 'twoSkills' | ['Dig', 'Block']; delta: number }
+/**
+ * What a `statDelta` chooser offers the player:
+ *   'any'        — any one of the ten stats
+ *   'twoSkills'  — pick two of the ten stats (Momentum Player)
+ *   SkillStat[]  — an explicit shortlist, e.g. ['Dig','Block'] or the six VB stats
+ */
+export type ChooseSpec = 'any' | 'twoSkills' | SkillStat[];
+
+/**
+ * Effects an individual option of an `optionChoice` may carry.
+ * Same shapes as `Effect` minus the choosers (an option cannot nest a chooser).
+ */
+export type OptionEffect =
+  | { kind: 'statDelta'; stat: SkillStat; delta: number }
   | { kind: 'heightDelta'; cm: number }
   | { kind: 'spikingReachDelta'; cm: number }
-  | { kind: 'overrideBlockingCoef'; value: number };  // Swing Block: 0.85 → 0.9
+  | { kind: 'verticalDelta'; cm: number }
+  | { kind: 'overrideBlockingCoef'; value: number };
+
+/** One selectable option of an `optionChoice` effect. */
+export interface AbilityOption {
+  /** Stable key stored in SelectedAbility.chooserSelections. */
+  id: string;
+  /** Short label shown on cards, Review, print sheet and Discord export. */
+  label: string;
+  /** Full text quoted from the rules source (tooltip / print detail). */
+  detail?: string;
+  /** Mechanical effects applied when this option is the recorded pick. */
+  effects?: OptionEffect[];
+}
+
+export type Effect =
+  | { kind: 'statDelta'; stat?: SkillStat; choose?: ChooseSpec; delta: number }
+  | { kind: 'heightDelta'; cm: number }
+  | { kind: 'spikingReachDelta'; cm: number }
+  | { kind: 'verticalDelta'; cm: number }        // Weight Lifting: +3 cm Vertical Jump
+  | { kind: 'overrideBlockingCoef'; value: number }  // Swing Block: 0.85 → 0.9
+  /**
+   * "Choose one of the following" — the player picks exactly ONE option per
+   * purchase and the pick is recorded on the instance. Options may be purely
+   * narrative (Flexibility) or carry effects (Weight Lifting).
+   */
+  | { kind: 'optionChoice'; prompt: string; options: AbilityOption[] };
 
 export interface AbilityTier {
   label: string;    // e.g. "Oikawa Serve"
@@ -158,10 +223,12 @@ export interface SelectedAbility {
   /** 0 = base tier, 1 = tier II, etc. (index into ability.tiers array if present) */
   tier: number;
   /**
-   * For abilities with chooser effects (e.g. "any Stat", "Dig or Block").
-   * Keys are the effect index; values are the chosen stat name(s).
+   * For abilities with chooser effects (e.g. "any Stat", "Dig or Block",
+   * "choose one of the following").
+   * Keys are the effect index; values are the chosen stat name(s) for a
+   * `statDelta` chooser, or the chosen `AbilityOption.id` for an `optionChoice`.
    */
-  chooserSelections: Record<number, SkillStat | SkillStat[]>;
+  chooserSelections: Record<number, SkillStat | SkillStat[] | string>;
 }
 
 // ── Level-up history ──────────────────────────────────────────────────────────
@@ -233,14 +300,93 @@ export interface Character {
 // Conversion helpers (PLAN.md §2)
 // ─────────────────────────────────────────────────────────────────────────────
 
-/** Height in cm from 3d10 roll total: 150 + 2 × roll */
+/**
+ * Height in cm from a 3d10 roll total: 148 + 2 × roll.
+ * Fits the Physical Attributes Table exactly: roll 3 → 154, 20 → 188, 30 → 208.
+ */
 export function rollToHeightCm(roll: number): number {
-  return 150 + 2 * roll;
+  return 148 + 2 * roll;
 }
 
-/** Vertical jump in cm from 3d10 roll total: 45 + 3 × roll */
+/**
+ * Vertical jump in cm from a 3d10 roll total: 39 + 3 × roll.
+ * Fits the Physical Attributes Table exactly: roll 3 → 48, 20 → 99, 30 → 129.
+ *
+ * This is the raw table conversion — callers that start from the assigned pool
+ * rolls should use `verticalCmFromRolls()` instead so the v.3 Height → Vert Jump
+ * Modifier is applied first.
+ */
 export function rollToVerticalCm(roll: number): number {
-  return 45 + 3 * roll;
+  return 39 + 3 * roll;
+}
+
+// ── v.3 Height → Vert Jump Modifier ───────────────────────────────────────────
+
+/** Lowest / highest 3d10 total — the domain of the Physical Attributes Table. */
+export const MIN_PHYSICAL_ROLL = 3;
+export const MAX_PHYSICAL_ROLL = 30;
+
+/** Clamp any roll-unit value into the 3–30 Physical Attributes Table range. */
+export function clampPhysicalRoll(roll: number): number {
+  if (roll < MIN_PHYSICAL_ROLL) return MIN_PHYSICAL_ROLL;
+  if (roll > MAX_PHYSICAL_ROLL) return MAX_PHYSICAL_ROLL;
+  return roll;
+}
+
+/**
+ * v.3 Physical Attributes Table — "Height – Vert Jump Modifier" column.
+ * The modifier is looked up from the HEIGHT roll and is expressed in roll units
+ * (it is added to the vertical jump roll, not to centimetres):
+ *
+ *   roll  3– 9 → +7 … +1   (modifier = 10 − roll)
+ *   roll 10–13 → ±0
+ *   roll 14–30 → −1 … −17  (modifier = 13 − roll)
+ *
+ * Short players jump higher; tall players jump lower.
+ * Out-of-range input is clamped to the table's 3–30 domain.
+ */
+export function heightRollToVerticalModifier(heightRoll: number): number {
+  const roll = clampPhysicalRoll(heightRoll);
+  if (roll <= 9) return 10 - roll;   // 3 → +7 … 9 → +1
+  if (roll <= 13) return 0;          // 10–13 → ±0
+  return 13 - roll;                  // 14 → −1 … 30 → −17
+}
+
+/**
+ * The vertical jump roll actually used for the cm conversion:
+ * raw vertical roll + the height-derived modifier, clamped back to 3–30 so it
+ * never falls off the Physical Attributes Table.
+ */
+export function effectiveVerticalRoll(heightRoll: number, verticalRoll: number): number {
+  return clampPhysicalRoll(verticalRoll + heightRollToVerticalModifier(heightRoll));
+}
+
+/**
+ * Single source of truth for base vertical jump in cm from the two assigned
+ * pool rolls (v.3 rule). Ability effects that add cm stack on top of this.
+ */
+export function verticalCmFromRolls(heightRoll: number, verticalRoll: number): number {
+  return rollToVerticalCm(effectiveVerticalRoll(heightRoll, verticalRoll));
+}
+
+/** Build a complete `PhysicalAttributes` from the two assigned pool rolls (v.3). */
+export function makePhysicalAttributes(
+  heightRoll: number,
+  verticalRoll: number
+): PhysicalAttributes {
+  return {
+    heightRoll,
+    verticalRoll,
+    heightCm: rollToHeightCm(heightRoll),
+    verticalModifier: heightRollToVerticalModifier(heightRoll),
+    verticalCm: verticalCmFromRolls(heightRoll, verticalRoll),
+  };
+}
+
+/** "+7" / "±0" / "−9" — compact display form for the modifier. */
+export function formatVerticalModifier(mod: number): string {
+  if (mod === 0) return '0';
+  return mod > 0 ? `+${mod}` : String(mod);
 }
 
 /** Standing reach in cm: 1.3 × Height */
@@ -273,6 +419,7 @@ export function computeReaches(
 ): DerivedReaches {
   return {
     effectiveHeightCm: heightCm,
+    effectiveVerticalCm: verticalCm,
     standingReachCm: standingReach(heightCm),
     spikingReachCm:  spikingReach(heightCm, verticalCm),
     blockingReachCm: blockingReach(heightCm, verticalCm, blockingCoef),

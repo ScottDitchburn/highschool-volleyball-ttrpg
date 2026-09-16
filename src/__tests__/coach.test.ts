@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, it, expect, beforeEach } from 'vitest';
-import type { Character } from '../types';
+import { makePhysicalAttributes, type Character } from '../types';
 import { coachReducer, benchPlayers, duplicateNumbers } from '../coach/coachStore';
 import type { CoachAction } from '../coach/coachStore';
 import { emptyCoachState, type CoachState, MAX_ROSTER } from '../coach/types';
@@ -21,7 +21,10 @@ function makeCharacter(name: string): Character {
     name,
     schoolYear: 1,
     physicalPool: { rollA: null, rollB: null },
-    physical: { heightRoll: 15, verticalRoll: 10, heightCm: 180, verticalCm: 75 },
+    // Physical Attributes Table: height roll 15 -> 178 cm; the v.3 modifier for
+    // that roll is -2, so a raw vertical roll of 12 lands on an effective roll of
+    // 10 => 69 cm.
+    physical: makePhysicalAttributes(15, 12), // 178 cm / 69 cm, mod -2
     reaches: null,
     skillPool: { rolls: Array(10).fill(null) },
     skills: {
@@ -271,9 +274,10 @@ describe('coach discord export', () => {
     const { state, ids } = withRoster(1);
     const populated = coachReducer(state, { type: 'SET_NUMBER', id: ids[0], number: 4 });
     const text = buildCoachDiscordExport(populated);
-    // height 180 / vertical 75 → standing 234, spiking 309, blocking 297.75→298
+    // height 178 / vertical 69 → standing 231.4→231, spiking 300.4→300,
+    // blocking 290.05→290
     expect(text).toContain('reach = standing/spiking/blocking');
-    expect(text).toMatch(/234\/309\/298/);
+    expect(text).toMatch(/231\/300\/290/);
   });
 
   it('includes each player\'s school year', () => {

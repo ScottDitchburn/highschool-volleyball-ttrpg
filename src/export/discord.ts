@@ -2,10 +2,11 @@
 // Build a Discord-friendly triple-backtick code block from a character.
 
 import type { Character, SkillStats, DerivedReaches } from '../types';
-import { SKILL_STAT_NAMES } from '../types';
+import { SKILL_STAT_NAMES, formatVerticalModifier } from '../types';
 import { ABILITY_MAP } from '../data/abilities';
 import { computeAPBudget } from '../engine/apEngine';
 import { cmDual } from '../utils/units';
+import { choiceLabels } from '../utils/abilityChoices';
 
 const PAD = 14; // label column width
 
@@ -39,17 +40,31 @@ export function buildDiscordExport(
   const name = character.name || 'Unnamed Player';
   const year = character.graduated ? 'Graduate' : yearLabel(character.schoolYear);
   let heightStr = '—';
+  let verticalStr = '—';
   if (character.physical) {
     const eff = derived?.effectiveHeightCm ?? character.physical.heightCm;
     const bonus = eff - character.physical.heightCm;
     heightStr = cmDual(eff) + (bonus > 0 ? ` (+${bonus.toFixed(1)})` : '');
+
+    // Effective vertical jump: base + ability bonuses (e.g. Weight Lifting +3 cm)
+    const effV = derived?.effectiveVerticalCm ?? character.physical.verticalCm;
+    const vBonus = effV - character.physical.verticalCm;
+    verticalStr = cmDual(effV, 0) + (vBonus > 0 ? ` (+${vBonus.toFixed(0)})` : '');
   }
 
   lines.push('╔══════════════════════════════════════╗');
   lines.push(`  ${name}`);
   lines.push(`  ${year}   |   Height: ${heightStr}`);
+  lines.push(`  Vertical Jump: ${verticalStr}`);
   if (character.seeded && character.seed) {
     lines.push(`  Seeded run · seed: ${character.seed}`);
+  }
+  if (character.physical) {
+    // v.3 Height → Vert Jump Modifier is baked into verticalCm; show it for transparency.
+    const p = character.physical;
+    lines.push(
+      `  Vertical Jump: ${cmDual(p.verticalCm, 0)} (mod ${formatVerticalModifier(p.verticalModifier)})`,
+    );
   }
   lines.push('──────────────────────────────────────');
 
@@ -100,13 +115,10 @@ export function buildDiscordExport(
       if (sel.tier > 0 && ability.tiers && ability.tiers[sel.tier - 1]) {
         label += ` (Tier ${toRoman(sel.tier)}: ${ability.tiers[sel.tier - 1].label})`;
       }
-      // Chooser selections
-      const choiceEntries = Object.entries(sel.chooserSelections);
-      if (choiceEntries.length > 0) {
-        const choices = choiceEntries.map(([, v]) =>
-          Array.isArray(v) ? (v as string[]).join('+') : String(v)
-        ).join(', ');
-        label += ` [${choices}]`;
+      // Chooser selections (stat picks and "choose one of the following" options)
+      const choices = choiceLabels(ability, sel);
+      if (choices.length > 0) {
+        label += ` [${choices.join(', ')}]`;
       }
       lines.push(`  • ${label}`);
     }

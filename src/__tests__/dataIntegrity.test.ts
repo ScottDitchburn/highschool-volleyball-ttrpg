@@ -2,13 +2,15 @@
 import { describe, it, expect } from 'vitest';
 import { ABILITIES, ABILITY_MAP } from '../data/abilities';
 import type { Prereq } from '../types';
+import { SKILL_STAT_NAMES } from '../types';
 
 const KNOWN_PREREQ_KINDS = new Set<string>([
   'stat', 'statAny', 'noStatAtLeast', 'derived', 'ability', 'meta', 'or',
 ]);
 
 const KNOWN_EFFECT_KINDS = new Set<string>([
-  'statDelta', 'heightDelta', 'spikingReachDelta', 'overrideBlockingCoef',
+  'statDelta', 'heightDelta', 'spikingReachDelta', 'verticalDelta',
+  'overrideBlockingCoef', 'optionChoice',
 ]);
 
 function collectPrereqKinds(prereqs: Prereq[]): string[] {
@@ -23,8 +25,9 @@ function collectPrereqKinds(prereqs: Prereq[]): string[] {
 }
 
 describe('data integrity: ABILITIES array', () => {
-  it('contains exactly 40 abilities', () => {
-    expect(ABILITIES.length).toBe(40);
+  // v.3 added Rest, Weight Lifting, Game Study, Flexibility and Playcalling.
+  it('contains exactly 45 abilities', () => {
+    expect(ABILITIES.length).toBe(45);
   });
 
   it('all ability ids are unique', () => {
@@ -73,6 +76,43 @@ describe('data integrity: ABILITIES array', () => {
       if (a.effects) {
         for (const eff of a.effects) {
           expect(KNOWN_EFFECT_KINDS.has(eff.kind)).toBe(true);
+          // Options nest their own effects — those kinds must be known too.
+          if (eff.kind === 'optionChoice') {
+            for (const option of eff.options) {
+              for (const inner of option.effects ?? []) {
+                expect(KNOWN_EFFECT_KINDS.has(inner.kind)).toBe(true);
+              }
+            }
+          }
+        }
+      }
+    }
+  });
+
+  it('every optionChoice has a prompt and at least two uniquely-identified options', () => {
+    for (const a of ABILITIES) {
+      for (const eff of a.effects ?? []) {
+        if (eff.kind !== 'optionChoice') continue;
+        expect(eff.prompt.trim().length).toBeGreaterThan(0);
+        expect(eff.options.length).toBeGreaterThanOrEqual(2);
+        const ids = eff.options.map((o) => o.id);
+        expect(new Set(ids).size).toBe(ids.length);
+        for (const option of eff.options) {
+          expect(option.id.trim().length).toBeGreaterThan(0);
+          expect(option.label.trim().length).toBeGreaterThan(0);
+        }
+      }
+    }
+  });
+
+  it('a statDelta chooser given an explicit list offers real, unique stats', () => {
+    for (const a of ABILITIES) {
+      for (const eff of a.effects ?? []) {
+        if (eff.kind !== 'statDelta' || !Array.isArray(eff.choose)) continue;
+        expect(eff.choose.length).toBeGreaterThanOrEqual(2);
+        expect(new Set(eff.choose).size).toBe(eff.choose.length);
+        for (const stat of eff.choose) {
+          expect((SKILL_STAT_NAMES as readonly string[]).includes(stat)).toBe(true);
         }
       }
     }
@@ -106,6 +146,8 @@ describe('data integrity: ABILITIES array', () => {
       'training', 'quick-learner', 'jump-serve', 'boom-jump-technique',
       'growth-spurt', 'swing-block', 'setter-dumps', 'double-jump',
       'standing-block', 'aggressive-spiker', 'fan',
+      // v.3 additions
+      'rest', 'weight-lifting', 'game-study', 'flexibility', 'playcalling',
     ];
     for (const id of required) {
       expect(ABILITY_MAP[id]).toBeDefined();
