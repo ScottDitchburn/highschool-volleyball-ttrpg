@@ -85,19 +85,20 @@ describe('computeSpent', () => {
     expect(computeSpent(char)).toBe(1);
   });
 
-  it('training (baseCost=5, tier=0): spent = 5', () => {
+  // v.3: "Training Cost: 6 AP" (was 5 AP in v.2).
+  it('training (baseCost=6, tier=0): spent = 6', () => {
     const char = makeChar({ selectedAbilities: [makeSel('training', 0)] });
-    expect(computeSpent(char)).toBe(5);
+    expect(computeSpent(char)).toBe(6);
   });
 
-  it('two training instances: spent = 10', () => {
+  it('two training instances: spent = 12', () => {
     const char = makeChar({
       selectedAbilities: [
         makeSel('training', 0, 'uid-a'),
         makeSel('training', 0, 'uid-b'),
       ],
     });
-    expect(computeSpent(char)).toBe(10);
+    expect(computeSpent(char)).toBe(12);
   });
 
   it('jump-serve at tier 1 (baseCost=3 + tiers[0].addCost=0): spent = 3', () => {
@@ -118,7 +119,7 @@ describe('computeSpent', () => {
   });
 
   it('multiple different abilities sum correctly', () => {
-    // training(5) + fan(1) + boom-jump-technique(4)
+    // v.3 costs: training(6) + fan(1) + boom-jump-technique(7) = 14
     const char = makeChar({
       selectedAbilities: [
         makeSel('training', 0, 'u1'),
@@ -126,7 +127,7 @@ describe('computeSpent', () => {
         makeSel('boom-jump-technique', 0, 'u3'),
       ],
     });
-    expect(computeSpent(char)).toBe(10);
+    expect(computeSpent(char)).toBe(14);
   });
 
   it('fan repeats at a flat 1 AP per copy: three copies = 3 AP', () => {
@@ -152,9 +153,9 @@ describe('apRemaining', () => {
     expect(apRemaining(char)).toBe(10);
   });
 
-  it('spent 5 of 10: remaining = 5', () => {
+  it('spent 6 of 10 (one v.3 Training): remaining = 4', () => {
     const char = makeChar({ selectedAbilities: [makeSel('training', 0)] });
-    expect(apRemaining(char)).toBe(5);
+    expect(apRemaining(char)).toBe(4);
   });
 
   it('remaining is never negative when AP budget is tight (result can go negative — no clamping)', () => {
@@ -164,13 +165,13 @@ describe('apRemaining', () => {
       selectedAbilities: [
         makeSel('training', 0, 'u1'),
         makeSel('training', 0, 'u2'),
-        makeSel('training', 0, 'u3'), // 15 spent out of 10
+        makeSel('training', 0, 'u3'), // 18 spent out of 10 (v.3 Training is 6 AP)
       ],
     });
     const rem = apRemaining(char);
     expect(typeof rem).toBe('number');
     expect(isNaN(rem)).toBe(false);
-    expect(rem).toBe(-5); // overspent by 5
+    expect(rem).toBe(-8); // overspent by 8
   });
 });
 

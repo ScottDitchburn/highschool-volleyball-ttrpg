@@ -1,5 +1,5 @@
 // ─────────────────────────────────────────────────────────────────────────────
-// Haikyū: Gauntlet RPG v2 — Domain Types
+// Haikyū: Gauntlet RPG v3 — Domain Types
 // All derived from PLAN.md §2 / §3.  Do NOT edit the schema below without
 // updating DATA_NOTES.md and the abilities data module.
 // ─────────────────────────────────────────────────────────────────────────────
@@ -40,6 +40,8 @@ export interface PhysicalAttributes {
 export interface DerivedReaches {
   /** Effective height in cm (base + ability height bonuses e.g. Growth Spurt) */
   effectiveHeightCm: number;
+  /** Effective vertical jump in cm (base + ability vertical bonuses e.g. Weight Lifting) */
+  effectiveVerticalCm: number;
   /** 1.3 × Height */
   standingReachCm: number;
   /** 1.3 × Height + Vertical */
@@ -66,6 +68,22 @@ export const SKILL_STAT_NAMES = [
 ] as const;
 
 export type SkillStat = typeof SKILL_STAT_NAMES[number];
+
+/**
+ * The six volleyball skill stats (v.3 "VB Stats" in the ability text).
+ * Training and Quick Learner may only raise one of these six — v.3 narrowed
+ * them from "any Stat". Speed / Power / IQ / Stamina are NOT valid targets.
+ */
+export const VB_SKILL_STAT_NAMES = [
+  'Serve',
+  'Spike',
+  'Set',
+  'Pass',
+  'Dig',
+  'Block',
+] as const;
+
+export type VbSkillStat = typeof VB_SKILL_STAT_NAMES[number];
 
 /**
  * A single 4d4 pool roll result.
@@ -123,11 +141,49 @@ export type Prereq =
   | { kind: 'meta'; flag: 'notFirstYear' | 'thirdYear' | 'creationOnly' | 'yearlyOnly' }
   | { kind: 'or'; any: Prereq[] };
 
-export type Effect =
-  | { kind: 'statDelta'; stat?: SkillStat; choose?: 'any' | 'twoSkills' | ['Dig', 'Block']; delta: number }
+/**
+ * What a `statDelta` chooser offers the player:
+ *   'any'        — any one of the ten stats
+ *   'twoSkills'  — pick two of the ten stats (Momentum Player)
+ *   SkillStat[]  — an explicit shortlist, e.g. ['Dig','Block'] or the six VB stats
+ */
+export type ChooseSpec = 'any' | 'twoSkills' | SkillStat[];
+
+/**
+ * Effects an individual option of an `optionChoice` may carry.
+ * Same shapes as `Effect` minus the choosers (an option cannot nest a chooser).
+ */
+export type OptionEffect =
+  | { kind: 'statDelta'; stat: SkillStat; delta: number }
   | { kind: 'heightDelta'; cm: number }
   | { kind: 'spikingReachDelta'; cm: number }
-  | { kind: 'overrideBlockingCoef'; value: number };  // Swing Block: 0.85 → 0.9
+  | { kind: 'verticalDelta'; cm: number }
+  | { kind: 'overrideBlockingCoef'; value: number };
+
+/** One selectable option of an `optionChoice` effect. */
+export interface AbilityOption {
+  /** Stable key stored in SelectedAbility.chooserSelections. */
+  id: string;
+  /** Short label shown on cards, Review, print sheet and Discord export. */
+  label: string;
+  /** Full text quoted from the rules source (tooltip / print detail). */
+  detail?: string;
+  /** Mechanical effects applied when this option is the recorded pick. */
+  effects?: OptionEffect[];
+}
+
+export type Effect =
+  | { kind: 'statDelta'; stat?: SkillStat; choose?: ChooseSpec; delta: number }
+  | { kind: 'heightDelta'; cm: number }
+  | { kind: 'spikingReachDelta'; cm: number }
+  | { kind: 'verticalDelta'; cm: number }        // Weight Lifting: +3 cm Vertical Jump
+  | { kind: 'overrideBlockingCoef'; value: number }  // Swing Block: 0.85 → 0.9
+  /**
+   * "Choose one of the following" — the player picks exactly ONE option per
+   * purchase and the pick is recorded on the instance. Options may be purely
+   * narrative (Flexibility) or carry effects (Weight Lifting).
+   */
+  | { kind: 'optionChoice'; prompt: string; options: AbilityOption[] };
 
 export interface AbilityTier {
   label: string;    // e.g. "Oikawa Serve"
@@ -158,10 +214,12 @@ export interface SelectedAbility {
   /** 0 = base tier, 1 = tier II, etc. (index into ability.tiers array if present) */
   tier: number;
   /**
-   * For abilities with chooser effects (e.g. "any Stat", "Dig or Block").
-   * Keys are the effect index; values are the chosen stat name(s).
+   * For abilities with chooser effects (e.g. "any Stat", "Dig or Block",
+   * "choose one of the following").
+   * Keys are the effect index; values are the chosen stat name(s) for a
+   * `statDelta` chooser, or the chosen `AbilityOption.id` for an `optionChoice`.
    */
-  chooserSelections: Record<number, SkillStat | SkillStat[]>;
+  chooserSelections: Record<number, SkillStat | SkillStat[] | string>;
 }
 
 // ── Level-up history ──────────────────────────────────────────────────────────
@@ -273,6 +331,7 @@ export function computeReaches(
 ): DerivedReaches {
   return {
     effectiveHeightCm: heightCm,
+    effectiveVerticalCm: verticalCm,
     standingReachCm: standingReach(heightCm),
     spikingReachCm:  spikingReach(heightCm, verticalCm),
     blockingReachCm: blockingReach(heightCm, verticalCm, blockingCoef),

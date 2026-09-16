@@ -10,6 +10,7 @@ import { LevelUpModal } from '../components/LevelUpModal';
 import { PrintSheet } from '../export/PrintSheet';
 import { buildDiscordExport } from '../export/discord';
 import { cmDual } from '../utils/units';
+import { choiceLabels } from '../utils/abilityChoices';
 import { SkillRadar } from '../charts/SkillRadar';
 
 // ── helpers ─────────────────────────────────────────────────────────────────
@@ -232,8 +233,20 @@ export function ReviewStep() {
           <div className="card flex flex-col gap-4">
             <div>
               <SectionHead>Physical Attributes</SectionHead>
-              <StatRow label="Height" value={physical ? cmDual(physical.heightCm) : '—'} />
-              <StatRow label="Vertical Jump" value={physical ? cmDual(physical.verticalCm, 0) : '—'} />
+              <StatRow
+                label="Height"
+                value={physical ? cmDual(derivedReaches?.effectiveHeightCm ?? physical.heightCm) : '—'}
+                sub={physical && derivedReaches && derivedReaches.effectiveHeightCm > physical.heightCm
+                  ? `(+${(derivedReaches.effectiveHeightCm - physical.heightCm).toFixed(1)} cm)`
+                  : undefined}
+              />
+              <StatRow
+                label="Vertical Jump"
+                value={physical ? cmDual(derivedReaches?.effectiveVerticalCm ?? physical.verticalCm, 0) : '—'}
+                sub={physical && derivedReaches && derivedReaches.effectiveVerticalCm > physical.verticalCm
+                  ? `(+${(derivedReaches.effectiveVerticalCm - physical.verticalCm).toFixed(0)} cm)`
+                  : undefined}
+              />
             </div>
 
             {derivedReaches && (
@@ -339,7 +352,7 @@ export function ReviewStep() {
                   sel.tier > 0 && ability.tiers && ability.tiers[sel.tier - 1]
                     ? `Tier ${toRoman(sel.tier)}: ${ability.tiers[sel.tier - 1].label}`
                     : null;
-                const choiceEntries = Object.entries(sel.chooserSelections);
+                const choices = choiceLabels(ability, sel);
                 const costTotal = ability.baseCost + (ability.tiers
                   ? ability.tiers.slice(0, sel.tier).reduce((a, t) => a + t.addCost, 0)
                   : 0);
@@ -352,12 +365,10 @@ export function ReviewStep() {
                     {tierLabel && (
                       <span className="text-charcoal-400 text-xs">{tierLabel}</span>
                     )}
-                    {choiceEntries.length > 0 && (
+                    {choices.length > 0 && (
                       <div className="text-xs text-charcoal-500">
-                        {choiceEntries.map(([idx, v]) => (
-                          <span key={idx} className="mr-2">
-                            {Array.isArray(v) ? (v as string[]).join(' + ') : String(v)}
-                          </span>
+                        {choices.map((c, i) => (
+                          <span key={i} className="mr-2">{c}</span>
                         ))}
                       </div>
                     )}

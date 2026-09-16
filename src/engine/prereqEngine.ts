@@ -5,12 +5,12 @@ import type {
   Prereq,
   Character,
   SkillStats,
-  SkillStat,
   DerivedReaches,
   Ability,
 } from '../types';
 import { SKILL_STAT_NAMES } from '../types';
 import { ABILITY_MAP } from '../data/abilities';
+import { applyStatEffects, applyDerivedEffects, instanceNeedsChooser } from './effects';
 import { apRemaining } from './apEngine';
 
 // ---------------------------------------------------------------------------
@@ -254,22 +254,11 @@ export function evaluateAbility(
   const currentRemaining = apRemaining(character);
   const affordable = desiredCost <= currentRemaining;
 
-  // needsChooser: true if ANY existing instance is missing a required chooser selection
-  let needsChooser = false;
-  if (ability.effects) {
-    const instances = character.selectedAbilities.filter((s) => s.abilityId === ability.id);
-    outer: for (const inst of instances) {
-      for (let i = 0; i < ability.effects.length; i++) {
-        const effect = ability.effects[i];
-        if (effect.kind === 'statDelta' && effect.choose) {
-          if (!inst.chooserSelections[i]) {
-            needsChooser = true;
-            break outer;
-          }
-        }
-      }
-    }
-  }
+  // needsChooser: true if ANY existing instance is missing a required chooser
+  // selection (a statDelta chooser or an unresolved "choose one of the following").
+  const needsChooser = character.selectedAbilities
+    .filter((s) => s.abilityId === ability.id)
+    .some((inst) => instanceNeedsChooser(ability.effects, inst.chooserSelections));
 
   return {
     prereqResults,
@@ -412,56 +401,11 @@ export function findIneligibleAbilities(character: Character): IneligibleAbility
 
 function computeSimEffectiveStats(character: Character): SkillStats | null {
   if (!character.skills) return null;
-  const stats = { ...character.skills };
-
-  for (const sel of character.selectedAbilities) {
-    const ability = ABILITY_MAP[sel.abilityId];
-    if (!ability?.effects) continue;
-
-    ability.effects.forEach((effect, idx) => {
-      if (effect.kind !== 'statDelta') return;
-      if (effect.stat) {
-        stats[effect.stat] = (stats[effect.stat] ?? 0) + effect.delta;
-      } else if (effect.choose) {
-        const chosen = sel.chooserSelections[idx];
-        if (!chosen) return;
-        if (Array.isArray(chosen)) {
-          (chosen as SkillStat[]).forEach((s) => {
-            stats[s] = (stats[s] ?? 0) + effect.delta;
-          });
-        } else {
-          const s = chosen as SkillStat;
-          stats[s] = (stats[s] ?? 0) + effect.delta;
-        }
-      }
-    });
-  }
-
-  return stats;
+  // Lenient on purpose: during skill assignment the skills object may still be
+  // partial, and the validation sweep must still be able to run.
+  return applyStatEffects(character, character.skills);
 }
 
 function computeSimDerived(character: Character): DerivedReaches | null {
-  if (!character.physical) return null;
-  let h = character.physical.heightCm;
-  let coef = 0.85;
-  let spikeDelta = 0;
-
-  for (const sel of character.selectedAbilities) {
-    const ability = ABILITY_MAP[sel.abilityId];
-    if (!ability?.effects) continue;
-    for (const effect of ability.effects) {
-      if (effect.kind === 'heightDelta') h += effect.cm;
-      else if (effect.kind === 'overrideBlockingCoef') coef = effect.value;
-      else if (effect.kind === 'spikingReachDelta') spikeDelta += effect.cm;
-    }
-  }
-
-  const v = character.physical.verticalCm;
-  return {
-    effectiveHeightCm: h,
-    standingReachCm: 1.3 * h,
-    spikingReachCm: 1.3 * h + v + spikeDelta,
-    blockingReachCm: 1.3 * h + coef * v,
-    blockingCoef: coef,
-  };
+  return applyDerivedEffects(character);
 }

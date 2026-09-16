@@ -33,6 +33,7 @@ import {
 } from '../types';
 
 import { ABILITY_MAP } from '../data/abilities';
+import { applyStatEffects, applyDerivedEffects } from '../engine/effects';
 import { computeSpent } from '../engine/apEngine';
 import { findIneligibleAbilities } from '../engine/prereqEngine';
 import {
@@ -104,7 +105,7 @@ export type CharacterAction =
   | { type: 'DESELECT_ABILITY'; uid: string }
   | { type: 'PRUNE_ABILITIES'; uids: string[] }
   | { type: 'SET_ABILITY_TIER'; uid: string; tier: number }
-  | { type: 'SET_ABILITY_CHOOSER'; uid: string; effectIndex: number; choice: SkillStat | SkillStat[] }
+  | { type: 'SET_ABILITY_CHOOSER'; uid: string; effectIndex: number; choice: SkillStat | SkillStat[] | string }
   | { type: 'INTERHIGH'; season: InterhighSeason; prelimGames: number; nationalGames: number; heightGainCm: number }
   | { type: 'START_SEEDED_RUN'; seed: string }
   | { type: 'IMPORT_CHARACTER'; character: Character }
@@ -361,19 +362,23 @@ function baseCharacterReducer(state: Character, action: CharacterAction): Charac
 // ---------------------------------------------------------------------------
 
 /**
- * Compute effective skill stats = base assigned skills + all selected ability statDelta effects.
+ * Compute effective skill stats = base assigned skills + all selected ability
+ * statDelta effects (including the statDelta effects of a chosen `optionChoice`
+ * option, e.g. Weight Lifting's +0.25 Speed).
  *
  * Rules:
  * - statDelta with a concrete stat: add delta unconditionally.
- * - statDelta with choose:'any' or choose:['Dig','Block'] or choose:'twoSkills':
+ * - statDelta with a chooser (choose:'any' | 'twoSkills' | an explicit stat list):
  *     apply delta to the stat(s) stored in chooserSelections[effectIndex].
- *     If no choice made yet, skip (ability needs a chooser selection).
- * - Special case: id === 'aggressive-spiker', effectIndex 1 (the penalty effect encoded
- *     as choose:['Dig','Block']) → the chooser actually stores Stamina or IQ.
- *     We handle it the same way (just read from chooserSelections), so the actual
- *     stored stat (Stamina or IQ) is applied correctly regardless of the encoded type.
- * - Skills can exceed 4.00 via bonuses; do NOT clamp.
+ *     If no choice has been made yet, skip (the ability needs a chooser selection).
+ * - optionChoice: apply the recorded option's own effects; an unmade choice
+ *     applies nothing.
+ * - Skills can exceed 4.00 via bonuses and drop below 1.00 via penalties
+ *     (v.3 Stamina costs); do NOT clamp.
  * - Returns null if base skills haven't been assigned yet.
+ *
+ * The effect maths itself lives in engine/effects.ts so the prereq engine's
+ * simulation runs exactly the same code.
  */
 export function computeEffectiveStats(character: Character): SkillStats | null {
   if (!character.skills) return null;
@@ -382,82 +387,20 @@ export function computeEffectiveStats(character: Character): SkillStats | null {
   // (which all guard with `if (effectiveStats)` expecting a complete block).
   if (!SKILL_STAT_NAMES.every((s) => typeof character.skills![s] === 'number')) return null;
 
-  // Start from a mutable copy of base stats
-  const stats: SkillStats = { ...character.skills };
-
-  for (const sel of character.selectedAbilities) {
-    const ability = ABILITY_MAP[sel.abilityId];
-    if (!ability || !ability.effects) continue;
-
-    ability.effects.forEach((effect, effectIndex) => {
-      if (effect.kind !== 'statDelta') return;
-
-      if (effect.stat) {
-        // Concrete stat: apply directly
-        stats[effect.stat] = (stats[effect.stat] ?? 0) + effect.delta;
-      } else if (effect.choose) {
-        // Chooser: read from chooserSelections
-        const chosen = sel.chooserSelections[effectIndex];
-        if (!chosen) return; // no choice made yet — skip
-
-        if (Array.isArray(chosen)) {
-          // twoSkills: chosen is SkillStat[]
-          for (const s of chosen as SkillStat[]) {
-            if (SKILL_STAT_NAMES.includes(s as typeof SKILL_STAT_NAMES[number])) {
-              stats[s as SkillStat] = (stats[s as SkillStat] ?? 0) + effect.delta;
-            }
-          }
-        } else {
-          // single stat chooser (any, ['Dig','Block'], or aggressive-spiker's Stamina/IQ)
-          const s = chosen as SkillStat;
-          if (SKILL_STAT_NAMES.includes(s as typeof SKILL_STAT_NAMES[number])) {
-            stats[s] = (stats[s] ?? 0) + effect.delta;
-          }
-        }
-      }
-    });
-  }
-
-  return stats;
+  return applyStatEffects(character, character.skills);
 }
 
 /**
- * Compute effective derived reaches  * - heightDelta effects (e.g. Growth Spurt +8 cm)
+ * Compute effective derived reaches, folding in:
+ * - heightDelta effects (e.g. Growth Spurt +8 cm)
+ * - verticalDelta effects (e.g. Weight Lifting +3 cm Vertical Jump)
  * - overrideBlockingCoef (e.g. Swing Block 0.85 to 0.9)
  * - spikingReachDelta (e.g. Boom Jump +6 cm)
  *
  * Returns null if physical attributes have not been assigned yet.
  */
 export function computeDerived(character: Character): DerivedReaches | null {
-  if (!character.physical) return null;
-
-  let effectiveHeightCm = character.physical.heightCm;
-  let blockingCoef = 0.85;
-  let spikingDelta = 0;
-
-  for (const sel of character.selectedAbilities) {
-    const ability = ABILITY_MAP[sel.abilityId];
-    if (!ability || !ability.effects) continue;
-
-    for (const effect of ability.effects) {
-      if (effect.kind === 'heightDelta') {
-        effectiveHeightCm += effect.cm;
-      } else if (effect.kind === 'overrideBlockingCoef') {
-        blockingCoef = effect.value;
-      } else if (effect.kind === 'spikingReachDelta') {
-        spikingDelta += effect.cm;
-      }
-    }
-  }
-
-  const verticalCm = character.physical.verticalCm;
-  return {
-    effectiveHeightCm,
-    standingReachCm: 1.3 * effectiveHeightCm,
-    spikingReachCm:  1.3 * effectiveHeightCm + verticalCm + spikingDelta,
-    blockingReachCm: 1.3 * effectiveHeightCm + blockingCoef * verticalCm,
-    blockingCoef,
-  };
+  return applyDerivedEffects(character);
 }
 
 // ---------------------------------------------------------------------------

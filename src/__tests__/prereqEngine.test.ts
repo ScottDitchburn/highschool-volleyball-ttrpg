@@ -47,6 +47,7 @@ function makeSel(abilityId: string, tier = 0, uid = 'uid-' + abilityId): Selecte
 function makeDerived(overrides: Partial<DerivedReaches> = {}): DerivedReaches {
   return {
     effectiveHeightCm: 210,
+    effectiveVerticalCm: 90,
     standingReachCm: 273, spikingReachCm: 363, blockingReachCm: 337.5,
     blockingCoef: 0.85, ...overrides,
   };

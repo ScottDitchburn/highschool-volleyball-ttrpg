@@ -208,7 +208,7 @@ export function AbilitiesStep() {
     dispatch({ type: 'SET_ABILITY_TIER', uid, tier: newTier });
   }
 
-  function handleChooserChange(uid: string, effectIndex: number, choice: SkillStat | SkillStat[]) {
+  function handleChooserChange(uid: string, effectIndex: number, choice: SkillStat | SkillStat[] | string) {
     dispatch({ type: 'SET_ABILITY_CHOOSER', uid, effectIndex, choice });
   }
 

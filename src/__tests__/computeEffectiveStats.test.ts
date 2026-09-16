@@ -87,25 +87,32 @@ describe('computeEffectiveStats', () => {
     // Other stats unchanged
     expect(eff.Serve).toBe(2.0);
     expect(eff.Dig).toBe(2.0);
+    // v.3: each Training purchase also costs -0.25 Stamina, and they stack.
+    expect(eff.Stamina).toBeCloseTo(1.5, 10);
   });
 
-  it('Training on same stat twice adds +0.5 total', () => {
+  it('Training on the same skill twice adds +0.5 total', () => {
+    // v.3 narrowed Training to the six VB skills, so the repeat target is Spike,
+    // not Power ("Add +0.25 to Serve, Spike, Set, Pass, Dig, or Block Stats").
     const skills = allStats(2.0);
     const abilities = [
-      makeSel('training', 0, 'uid-a', { 0: 'Power' }),
-      makeSel('training', 0, 'uid-b', { 0: 'Power' }),
+      makeSel('training', 0, 'uid-a', { 0: 'Spike' }),
+      makeSel('training', 0, 'uid-b', { 0: 'Spike' }),
     ];
     const char = makeChar(skills, abilities);
     const eff = computeEffectiveStats(char)!;
-    expect(eff.Power).toBeCloseTo(2.5, 10);
+    expect(eff.Spike).toBeCloseTo(2.5, 10);
+    expect(eff.Stamina).toBeCloseTo(1.5, 10);
   });
 
-  it('Training with no chooser selection is skipped (no change)', () => {
+  it('Training with no chooser selection applies only its fixed Stamina cost', () => {
+    // v.3 Training has TWO effects: a six-skill chooser (+0.25) and a fixed
+    // -0.25 Stamina. An unmade choice skips the chooser; the fixed cost still lands.
     const skills = allStats(2.0);
     const abilities = [makeSel('training', 0, 'uid-a', {})]; // no chooserSelections
     const char = makeChar(skills, abilities);
     const eff = computeEffectiveStats(char)!;
-    expect(eff).toEqual(skills);
+    expect(eff).toEqual({ ...skills, Stamina: 1.75 });
   });
 
   it('new-technique applies -0.25 Spike and -0.25 Serve unconditionally', () => {

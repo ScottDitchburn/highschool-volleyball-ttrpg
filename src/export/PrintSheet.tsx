@@ -9,6 +9,7 @@ import { SKILL_STAT_NAMES } from '../types';
 import { ABILITY_MAP } from '../data/abilities';
 import { computeAPBudget } from '../engine/apEngine';
 import { cmDual } from '../utils/units';
+import { choiceLabels } from '../utils/abilityChoices';
 import { SkillRadar } from '../charts/SkillRadar';
 
 interface Props {
@@ -33,6 +34,8 @@ export function PrintSheet({ character, effectiveStats, derived }: Props) {
   const apBudget = computeAPBudget(character); // live spent/remaining
   const effHeightCm = derived?.effectiveHeightCm ?? physical?.heightCm ?? null;
   const heightBonus = physical && effHeightCm !== null ? effHeightCm - physical.heightCm : 0;
+  const effVerticalCm = derived?.effectiveVerticalCm ?? physical?.verticalCm ?? null;
+  const verticalBonus = physical && effVerticalCm !== null ? effVerticalCm - physical.verticalCm : 0;
 
   return (
     <div
@@ -85,7 +88,10 @@ export function PrintSheet({ character, effectiveStats, derived }: Props) {
                 <tr>
                   <td style={{ color: '#555', paddingBottom: '3px' }}>Vertical Jump</td>
                   <td style={{ fontFamily: 'monospace', fontWeight: 700, textAlign: 'right' }}>
-                    {physical ? cmDual(physical.verticalCm, 0) : '—'}
+                    {effVerticalCm !== null ? cmDual(effVerticalCm, 0) : '—'}
+                    {verticalBonus > 0 && (
+                      <span style={{ fontSize: '10px', marginLeft: '4px', color: '#27ae60' }}>(+{verticalBonus.toFixed(0)})</span>
+                    )}
                   </td>
                 </tr>
               </tbody>
@@ -256,11 +262,8 @@ export function PrintSheet({ character, effectiveStats, derived }: Props) {
                     sel.tier > 0 && ability.tiers && ability.tiers[sel.tier - 1]
                       ? ` — Tier ${toRoman(sel.tier)}: ${ability.tiers[sel.tier - 1].label}`
                       : '';
-                  const choiceEntries = Object.entries(sel.chooserSelections);
-                  const choiceStr =
-                    choiceEntries.length > 0
-                      ? ` [${choiceEntries.map(([, v]) => (Array.isArray(v) ? (v as string[]).join('+') : String(v))).join(', ')}]`
-                      : '';
+                  const choices = choiceLabels(ability, sel);
+                  const choiceStr = choices.length > 0 ? ` [${choices.join(', ')}]` : '';
                   return (
                     <li key={sel.uid} style={{ marginBottom: '4px', display: 'flex', gap: '6px' }}>
                       <span style={{ color: '#E8741E', fontWeight: 700 }}>•</span>
@@ -283,7 +286,7 @@ export function PrintSheet({ character, effectiveStats, derived }: Props) {
 
       {/* Footer */}
       <div style={{ borderTop: '1px solid #ddd', marginTop: '16px', paddingTop: '8px', fontSize: '10px', color: '#aaa', display: 'flex', justifyContent: 'space-between' }}>
-        <span>Haikyuu: Gauntlet RPG v2 Character Builder</span>
+        <span>Haikyuu: Gauntlet RPG v3 Character Builder</span>
         <span>Generated {new Date().toLocaleDateString()}</span>
       </div>
     </div>

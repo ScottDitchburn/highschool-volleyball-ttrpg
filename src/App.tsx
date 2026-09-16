@@ -52,7 +52,7 @@ function NameEntry({ onStart, onCoach }: { onStart: () => void; onCoach: () => v
         <h1 className="text-4xl md:text-5xl font-black text-orange-400 tracking-tight">
           Haikyuu: Gauntlet RPG
         </h1>
-        <p className="text-charcoal-400 mt-2 text-lg">v2 Character Builder</p>
+        <p className="text-charcoal-400 mt-2 text-lg">v3 Character Builder</p>
       </div>
 
       <div className="card w-full max-w-md flex flex-col gap-4">

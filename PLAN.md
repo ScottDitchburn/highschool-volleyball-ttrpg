@@ -1,8 +1,8 @@
-# Haikyū: Gauntlet RPG v2 — Character Builder · Project Plan
+# Haikyū: Gauntlet RPG v3 — Character Builder · Project Plan
 
 _Status: awaiting final go-ahead + GitHub deploy inputs. Last updated 2026-06-12._
 
-A web UI for creating (and progressing) characters in the Haikyū: Gauntlet RPG v2 system,
+A web UI for creating (and progressing) characters in the Haikyū: Gauntlet RPG v3 system,
 hosted on GitHub Pages from a public repo.
 
 ---
@@ -41,6 +41,9 @@ Vertical Jump. Convert via the Physical Attributes Table:
 - Spiking Reach  = `1.3 × Height + Vertical`
 - Blocking Reach = `1.3 × Height + 0.85 × Vertical`  (Swing Block ability overrides the `0.85` to `0.9`)
 
+Height and Vertical here are the **effective** values: base roll plus ability bonuses
+(Growth Spurt `+8 cm` height, Weight Lifting `+3 cm` vertical).
+
 **Skill Stats** (10): Spike, Serve, Pass, Dig, Set, Block, Speed, Power, IQ, Stamina.
 Each = average of `4d4` → range 1.00–4.00 in 0.25 steps. Roll all ten into a pool, then assign.
 
@@ -49,8 +52,11 @@ Each = average of `4d4` → range 1.00–4.00 in 0.25 steps. Roll all ten into a
 - Previous Experience (`2d8`): 2–3 +0 · 4–7 +1 · 8–11 +2 · 12–15 +3 · 16 +4
 - Level-up (subsequent years): AP gain = `3 + 2 × (# teams played)`; also Height += `1d20 × 0.1 cm`
 
-**Abilities** — ~40 entries. Properties: cost, prereq(s), optional tier ladder (cumulative additional
+**Abilities** — 45 entries (v.3). Properties: cost, prereq(s), optional tier ladder (cumulative additional
 cost to reach a tier), optional max-times `(N)`, and effects (some modify stats/derived values).
+Effects may also present a choice the player records per purchase: a stat chooser
+(`+0.25 to one of Serve/Spike/Set/Pass/Dig/Block`) or a "choose one of the following"
+option list (Weight Lifting's Speed / Power / Vertical Jump, Flexibility's two narrative options).
 Prereq types observed: stat threshold (`Spike 3.25+`), compound AND, OR (`Pass 2.75+ or Set 2.25+`),
 inverse (`No Stat 3.75+`), derived-stat (`Standing Reach 250cm+`), ability-tier (`Double Jump 3`),
 and meta (`Select on Character Creation`, `Yearly Only`, `Not a First Year`, `Third Year`).
@@ -84,11 +90,34 @@ type Prereq =
   | { kind: "or"; any: Prereq[] };
 
 type Effect =
-  | { kind: "statDelta"; stat?: SkillStat; choose?: "any"|"twoSkills"|["Dig","Block"]; delta: number }
+  | { kind: "statDelta"; stat?: SkillStat; choose?: ChooseSpec; delta: number }
   | { kind: "heightDelta"; cm: number }
   | { kind: "spikingReachDelta"; cm: number }
-  | { kind: "overrideBlockingCoef"; value: number };  // Swing Block
+  | { kind: "verticalDelta"; cm: number }            // Weight Lifting (+3 cm Vertical Jump)
+  | { kind: "overrideBlockingCoef"; value: number }  // Swing Block
+  // "Choose one of the following" — one option recorded per purchase.
+  // Options may carry their own effects (Weight Lifting) or be narrative only (Flexibility).
+  | { kind: "optionChoice"; prompt: string; options: AbilityOption[] };
+
+// 'any' = any of the ten stats · 'twoSkills' = pick two · SkillStat[] = an explicit shortlist
+// (the six VB skills for Training / Quick Learner, ["Dig","Block"], ["Stamina","IQ"], …)
+type ChooseSpec = "any" | "twoSkills" | SkillStat[];
+
+type AbilityOption = {
+  id: string;        // recorded in SelectedAbility.chooserSelections
+  label: string;     // shown on the card, Review, print sheet, Discord export
+  detail?: string;   // full rules sentence (tooltip / print)
+  effects?: OptionEffect[];   // Effect minus the choosers; omitted = narrative only
+};
 ```
+
+`src/engine/effects.ts` owns the one implementation of "apply the active effects"
+(top-level effects plus the effects of whichever option each purchase recorded); the
+store selectors and the prereq engine's simulation both call it. An **unresolved**
+choice applies nothing and marks the purchase as still owing a choice.
+
+Effective stats are **not clamped** — they may exceed 4.00 via bonuses and fall below
+1.00 via v.3's Stamina costs.
 
 The engine recomputes **effective stats** and **derived reaches** from base + active ability effects
 on every change, then re-evaluates every ability's prereqs and AP affordability.
@@ -107,7 +136,9 @@ on every change, then re-evaluates every ability's prereqs and AP affordability.
 5. **Abilities** — responsive grid of ability cards. Each card shows cost, prereqs, tier ladder.
    - Unaffordable / unmet-prereq abilities are visibly disabled; **failing prereqs highlighted red**.
    - Live **AP meter** (spent / remaining); selection is blocked from exceeding budget (**no AP debt**).
-   - Tier selector per tiered ability (cumulative cost). Choosers appear for "any Stat" / two-skill / Dig-or-Block effects.
+   - Tier selector per tiered ability (cumulative cost). Choosers appear per purchase for stat
+     choosers (any Stat / two-skill / an explicit shortlist) and for "choose one of the following"
+     option lists; a purchase with an outstanding choice blocks buying another copy.
    - Removing an ability that another depends on triggers a **cascade warning**.
 6. **Review / Export** — full sheet; **Print / PDF / Discord-copy** outputs; JSON export.
 7. **Level-up** (post-creation action) — prompts # teams played → adds AP, rolls `1d20×0.1cm` height growth,

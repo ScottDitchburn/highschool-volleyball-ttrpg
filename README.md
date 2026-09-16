@@ -1,6 +1,6 @@
-# Haikyū: Gauntlet RPG v2 — Character Builder
+# Haikyū: Gauntlet RPG v3 — Character Builder
 
-A web-based character builder for the Haikyū: Gauntlet RPG v2 tabletop system.
+A web-based character builder for the Haikyū: Gauntlet RPG v3 tabletop system.
 Deployed on Vercel; source in this repository.
 
 **Live site:** https://washioisbae.vercel.app/
