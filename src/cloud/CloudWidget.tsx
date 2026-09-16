@@ -262,6 +262,11 @@ function PublicCharactersPanel({
 
 // ── The banner control ───────────────────────────────────────────────────────
 
+/** After a cloud character is loaded, make sure the builder shows the wizard. */
+function announceLoaded(): void {
+  window.dispatchEvent(new CustomEvent('haikyu:open-wizard'));
+}
+
 export function CloudWidget() {
   const auth = useCloudAuth();
   const { canSave, isUpdate, state: saveState, saveNow } = useCloudSave();
@@ -448,7 +453,10 @@ export function CloudWidget() {
             <MyCharactersPanel
               client={auth.client}
               userId={auth.userId}
-              onLoaded={() => setView(null)}
+              onLoaded={() => {
+                setView(null);
+                announceLoaded();
+              }}
             />
           )}
 
@@ -456,7 +464,10 @@ export function CloudWidget() {
             <PublicCharactersPanel
               client={auth.client}
               viewerId={auth.userId}
-              onLoaded={() => setView(null)}
+              onLoaded={() => {
+                setView(null);
+                announceLoaded();
+              }}
             />
           )}
         </div>

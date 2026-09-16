@@ -69,7 +69,8 @@ describe('CloudWidget', () => {
     await act(async () => {
       fireEvent.click(button);
     });
-    expect(auth.signInCalls[0].provider).toBe('discord');
+    // The sign-in awaits the lazily created client, so the call lands a tick later.
+    await waitFor(() => expect(auth.signInCalls[0]?.provider).toBe('discord'));
     // Signed out, the only other affordance is browsing what people shared.
     expect(screen.getByRole('button', { name: /^public$/i })).toBeTruthy();
   });
@@ -142,5 +143,39 @@ describe('CloudWidget', () => {
     expect(screen.getByRole('checkbox', { name: /make kageyama public/i })).toBeTruthy();
     expect(screen.getByRole('button', { name: /^load$/i })).toBeTruthy();
     expect(screen.getByRole('button', { name: /delete kageyama/i })).toBeTruthy();
+  });
+});
+
+describe('landing page cloud control', () => {
+  it('shows the Discord sign-in button on the name-entry page when signed out', async () => {
+    configure();
+    const auth = makeFakeAuth(null);
+    setCloudClientForTests(makeFakeDb(emptyRows, auth.auth).client);
+    const { default: App } = await import('../App');
+    render(<App />);
+    expect(await screen.findByRole('button', { name: /sign in with discord/i })).toBeTruthy();
+    expect(screen.getByRole('button', { name: /start building/i })).toBeTruthy();
+  });
+
+  it('shows the profile button on the name-entry page when signed in', async () => {
+    configure();
+    const auth = makeFakeAuth(fakeSession('user-1'));
+    setCloudClientForTests(
+      makeFakeDb(
+        (call) =>
+          call.table === 'profiles'
+            ? { data: { id: 'user-1', username: 'ninja_shoyo', avatar_url: null }, error: null }
+            : emptyRows(),
+        auth.auth,
+      ).client,
+    );
+    const { default: App } = await import('../App');
+    render(<App />);
+    const trigger = await screen.findByRole('button', { name: /ninja_shoyo/i });
+    await act(async () => {
+      fireEvent.click(trigger);
+    });
+    expect(screen.getByRole('button', { name: /my characters/i })).toBeTruthy();
+    expect(screen.getByRole('button', { name: /sign out/i })).toBeTruthy();
   });
 });

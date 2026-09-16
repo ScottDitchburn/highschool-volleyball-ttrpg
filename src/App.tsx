@@ -51,7 +51,12 @@ function NameEntry({ onStart, onCoach }: { onStart: () => void; onCoach: () => v
   }
 
   return (
-    <div className="flex flex-col items-center justify-center min-h-screen bg-court p-6 gap-8">
+    <div className="relative flex flex-col items-center justify-center min-h-screen bg-court p-6 gap-8">
+      {/* Cloud account control: Discord sign-in when signed out, profile menu when signed in. */}
+      <div className="absolute top-4 right-4 flex items-center gap-2">
+        <CloudWidget />
+      </div>
+
       <div className="text-center">
         <h1 className="text-4xl md:text-5xl font-black text-orange-400 tracking-tight">
           Haikyuu: Gauntlet RPG
@@ -334,11 +339,17 @@ function AppInner({ onCoach }: { onCoach: () => void }) {
   );
 
   // Reset (from SaveControls or graduation) clears the session and returns the
-  // player to the landing page to enter a new character name.
+  // player to the landing page to enter a new character name. Loading a cloud
+  // character (from the Cloud menu on the landing page) jumps into the wizard.
   useEffect(() => {
-    const handler = () => setAppState('name-entry');
-    window.addEventListener('haikyu:reset', handler);
-    return () => window.removeEventListener('haikyu:reset', handler);
+    const onReset = () => setAppState('name-entry');
+    const onOpenWizard = () => setAppState('wizard');
+    window.addEventListener('haikyu:reset', onReset);
+    window.addEventListener('haikyu:open-wizard', onOpenWizard);
+    return () => {
+      window.removeEventListener('haikyu:reset', onReset);
+      window.removeEventListener('haikyu:open-wizard', onOpenWizard);
+    };
   }, []);
 
   if (appState === 'name-entry') {
