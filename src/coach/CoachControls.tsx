@@ -5,6 +5,7 @@ import { useCallback, useRef, useState } from 'react';
 import { useCoach } from './coachStore';
 import { downloadCoach, importCoachFromFile } from './persistence';
 import { buildCoachDiscordExport } from './export/coachDiscord';
+import { downloadCoachExcel } from './export/coachExcel';
 
 export function CoachControls() {
   const { coach, dispatch } = useCoach();
@@ -12,6 +13,7 @@ export function CoachControls() {
   const [copyState, setCopyState] = useState<'idle' | 'copied' | 'error'>('idle');
   const [importError, setImportError] = useState<string | null>(null);
   const [importOk, setImportOk] = useState(false);
+  const [excelState, setExcelState] = useState<'idle' | 'busy' | 'error'>('idle');
 
   const handlePrint = useCallback(() => window.print(), []);
 
@@ -24,6 +26,17 @@ export function CoachControls() {
       setCopyState('error');
     }
     setTimeout(() => setCopyState('idle'), 2500);
+  }, [coach]);
+
+  const handleExcel = useCallback(async () => {
+    setExcelState('busy');
+    try {
+      await downloadCoachExcel(coach);
+      setExcelState('idle');
+    } catch {
+      setExcelState('error');
+      setTimeout(() => setExcelState('idle'), 2500);
+    }
   }, [coach]);
 
   const handleImportClick = useCallback(() => {
@@ -67,6 +80,9 @@ export function CoachControls() {
         </button>
         <button type="button" onClick={() => downloadCoach(coach)} className="btn-ghost text-sm py-2 px-4" title="Download a coach backup JSON">
           ↓ Export Coach JSON
+        </button>
+        <button type="button" onClick={handleExcel} disabled={excelState === 'busy'} className={`text-sm py-2 px-4 rounded-lg font-bold border transition-colors ${excelState === 'error' ? 'bg-red-700 border-red-600 text-white' : 'btn-ghost'}`} title="Download the roster, lineup and abilities as an Excel workbook (.xlsx)">
+          {excelState === 'busy' ? 'Preparing…' : excelState === 'error' ? 'Failed — try again' : '↓ Export Excel'}
         </button>
         <button type="button" onClick={handleImportClick} className="btn-ghost text-sm py-2 px-4" title="Restore a coach backup JSON">
           ↑ Import Coach JSON

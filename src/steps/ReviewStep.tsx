@@ -9,6 +9,7 @@ import { computeAPBudget } from '../engine/apEngine';
 import { LevelUpModal } from '../components/LevelUpModal';
 import { PrintSheet } from '../export/PrintSheet';
 import { buildDiscordExport } from '../export/discord';
+import { downloadCharacterExcel } from '../export/excel';
 import { cmDual } from '../utils/units';
 import { choiceLabels } from '../utils/abilityChoices';
 import { SkillRadar } from '../charts/SkillRadar';
@@ -88,6 +89,7 @@ export function ReviewStep() {
 
   const [levelUpSeason, setLevelUpSeason] = useState<InterhighSeason | null>(null);
   const [copyState, setCopyState] = useState<'idle' | 'copied' | 'error'>('idle');
+  const [excelState, setExcelState] = useState<'idle' | 'busy' | 'error'>('idle');
 
   // Within the current school year, Summer must be done before Spring is unlocked.
   const summerDone = levelUpHistory.some((r) => r.season === 'summer' && r.year === schoolYear);
@@ -111,6 +113,18 @@ export function ReviewStep() {
     } catch {
       setCopyState('error');
       setTimeout(() => setCopyState('idle'), 2500);
+    }
+  }, [character, effectiveStats, derivedReaches]);
+
+  // ── Excel (.xlsx) download ────────────────────────────────────────────────
+  const handleExcel = useCallback(async () => {
+    setExcelState('busy');
+    try {
+      await downloadCharacterExcel(character, effectiveStats, derivedReaches);
+      setExcelState('idle');
+    } catch {
+      setExcelState('error');
+      setTimeout(() => setExcelState('idle'), 2500);
     }
   }, [character, effectiveStats, derivedReaches]);
 
@@ -180,6 +194,16 @@ export function ReviewStep() {
               title="Copy Discord-formatted character block"
             >
               {copyState === 'copied' ? 'Copied!' : copyState === 'error' ? 'Failed — try again' : 'Copy for Discord'}
+            </button>
+            <button
+              onClick={handleExcel}
+              disabled={excelState === 'busy'}
+              className={`text-sm py-2 px-4 rounded-lg font-bold border transition-colors ${
+                excelState === 'error' ? 'bg-red-700 border-red-600 text-white' : 'btn-ghost'
+              }`}
+              title="Download this character as an Excel workbook (.xlsx)"
+            >
+              {excelState === 'busy' ? 'Preparing…' : excelState === 'error' ? 'Failed — try again' : 'Export Excel'}
             </button>
             {graduated ? (
               <button

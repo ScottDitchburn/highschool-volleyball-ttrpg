@@ -24,7 +24,7 @@ Node 20+.
 - [src/steps/](src/steps/) — one file per wizard step (Physical → Reaches → Skills → Year/Experience → Abilities → Review).
 - [src/state/characterStore.tsx](src/state/characterStore.tsx) — React context + reducer; [persistence.ts](src/state/persistence.ts) handles localStorage + JSON import/export.
 - [src/charts/](src/charts/) — hand-rolled SVG distribution/radar charts and `distributions.ts` (3d10 convolution maths).
-- [src/export/](src/export/) — print sheet, PDF, Discord code-block export.
+- [src/export/](src/export/) — print sheet, PDF, Discord code-block export, Excel (.xlsx) workbook export (`excel.ts`, lazy-loads `write-excel-file`). Coach-mode equivalents live in [src/coach/export/](src/coach/export/).
 - [src/__tests__/](src/__tests__/) — vitest engine + UI tests.
 
 ## Reference docs

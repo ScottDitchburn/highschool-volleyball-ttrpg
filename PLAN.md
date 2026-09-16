@@ -21,7 +21,7 @@ hosted on GitHub Pages from a public repo.
 | 8 | Scope | **Full lifecycle** — create a character, then **level-up to the next school year** |
 | 9 | Roster | **Single active character** at a time (export to keep older ones) |
 | 10 | Persistence | **localStorage autosave + JSON export/import** |
-| 11 | Sheet output | **Print-friendly view + PDF export + Discord code-block export** (copy-to-clipboard) |
+| 11 | Sheet output | **Print-friendly view + PDF export + Discord code-block export** (copy-to-clipboard) + **Excel (.xlsx) workbook** download |
 | 12 | Aesthetic | **Volleyball-court sporty** — warm orange + charcoal/black, athletic type, subtle court-line motifs; original art only |
 | 13 | Abilities data | **Editable data file** (single source of truth) + **DATA_NOTES.md** documenting every interpretation of the WIP source |
 | 14 | Responsiveness | **Fully responsive / mobile-friendly** (touch dice, tap-to-assign fallback for drag) |
@@ -166,7 +166,7 @@ on every change, then re-evaluates every ability's prereqs and AP affordability.
      choosers (any Stat / two-skill / an explicit shortlist) and for "choose one of the following"
      option lists; a purchase with an outstanding choice blocks buying another copy.
    - Removing an ability that another depends on triggers a **cascade warning**.
-6. **Review / Export** — full sheet; **Print / PDF / Discord-copy** outputs; JSON export.
+6. **Review / Export** — full sheet; **Print / PDF / Discord-copy / Excel** outputs; JSON export.
 7. **Level-up** (post-creation action) — prompts # teams played → adds AP, rolls `1d20×0.1cm` height growth,
    unlocks yearly-only abilities, reopens ability spending; recomputes everything.
 
