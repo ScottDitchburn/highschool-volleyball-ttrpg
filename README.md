@@ -27,6 +27,29 @@ Requires Node 20+.
 
 ---
 
+## Optional cloud saves (Supabase)
+
+The builder works entirely offline: characters autosave to localStorage and can
+be exported as JSON. Cloud saves are an **optional** extra — sign in with
+Discord to keep unlimited characters and mark any of them public for anyone to
+view.
+
+They switch on only when both build-time variables are set (copy
+`.env.example` to `.env.local`, or add them in Vercel → Settings → Environment
+Variables):
+
+```
+VITE_SUPABASE_URL=https://<project-ref>.supabase.co
+VITE_SUPABASE_PUBLISHABLE_KEY=<publishable / anon key>
+```
+
+Without them the Cloud control is hidden and nothing else changes. Applying the
+schema and configuring Discord auth is described in
+[supabase/README.md](supabase/README.md); the migration itself is
+`supabase/migrations/0001_cloud_characters.sql`.
+
+---
+
 ## Editing abilities data
 
 All ability definitions live in a single source-of-truth file:
@@ -54,6 +77,7 @@ src/
   components/     Shared UI components (CharacterSheet, DiceRoller, etc.)
   steps/          One file per wizard step
   state/          characterStore.ts — React context + reducer
+  cloud/          Optional Supabase cloud saves (off without env vars)
   types.ts        All domain types and conversion helpers
   App.tsx         Wizard shell + step routing
   main.tsx        React entry point

@@ -226,4 +226,49 @@ Milestones:
 3. **Short-lived fine-grained PAT** when we reach the deploy milestone
 
 Everything else proceeds without you.
-```
+
+---
+
+## 9. Cloud persistence (optional, additive)
+
+Cloud saves sit *beside* the existing storage, never in front of it: localStorage
+autosave and JSON import/export are unchanged, and with no credentials present
+the feature is invisible.
+
+**Switch.** Two build-time variables, both safe in client code:
+`VITE_SUPABASE_URL` and `VITE_SUPABASE_PUBLISHABLE_KEY`. `isCloudConfigured()`
+(src/cloud/config.ts) gates every entry point; supabase-js is loaded with a
+dynamic import so an unconfigured build never ships it. No service-role key
+exists anywhere in this app.
+
+**Auth.** Supabase Auth with **Discord as the only provider**.
+`signInWithOAuth({ provider: 'discord', redirectTo: origin + pathname })` returns
+the player to the page they left. A trigger on `auth.users` copies the Discord
+display name and avatar into `public.profiles`, which is what the UI shows and
+what public listings credit.
+
+**Schema** (`supabase/migrations/0001_cloud_characters.sql`):
+
+| Table / view               | Columns                                                                 |
+| -------------------------- | ----------------------------------------------------------------------- |
+| `public.profiles`          | `id` (= `auth.users.id`), `username`, `avatar_url`, `created_at`         |
+| `public.characters`        | `id`, `owner_id`, `name`, `is_public`, `schema_version`, `data` jsonb, `created_at`, `updated_at` |
+| `public.public_characters` | `security_invoker` view: the `is_public` rows + the owner's username      |
+
+`data` holds the same `Character` JSON the app exports, stamped with
+`schema_version`; loading runs the identical migration path as a JSON import
+(`adoptCharacter` in src/state/persistence.ts), so old cloud saves upgrade on
+the way in. Unlimited characters per user — no quota logic anywhere.
+
+**RLS.** Enabled on both tables.
+
+* Owners may `select` / `insert` / `update` / `delete` only rows with
+  `owner_id = auth.uid()`; the insert policy enforces it with a `WITH CHECK` so a
+  row cannot be created under someone else's name.
+* **Anyone**, signed in or not, may `select` rows where `is_public = true`.
+* Profiles are readable by everyone, writable only by their owner.
+
+**Ownership in the client.** `Character.cloudId` is a bookmark, not game data:
+the engine ignores it, persistence carries it, saving with one set updates that
+row and saving without one inserts a new row. Loading a public character that
+is not yours strips `cloudId`, so the first save makes a copy of your own.

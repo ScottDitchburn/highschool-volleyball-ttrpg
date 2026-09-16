@@ -22,6 +22,11 @@ export const SCHEMA_VERSION = 3;
 /** Schema versions this build can read (older ones are upgraded by migration). */
 const SUPPORTED_VERSIONS = [1, 2, 3];
 
+/** True when this build knows how to read a save written at `version`. */
+export function isSupportedVersion(version: number): boolean {
+  return SUPPORTED_VERSIONS.includes(version);
+}
+
 /**
  * The buggy height conversion used by schema v1 and v2 saves. Needed to work out
  * how much of a stored `heightCm` was accrued Interhigh growth (which is banked
@@ -114,6 +119,39 @@ export function migratePhysical(character: Character, version: number = SCHEMA_V
     character.reaches?.blockingCoef ?? 0.85,
   );
   return character;
+}
+
+/**
+ * Single migration path for any character payload that did not come from the
+ * running session: JSON import, and cloud loads.
+ *
+ * Validates the shape, upgrades old schema versions in place and hands back a
+ * ready-to-dispatch Character. Never throws.
+ */
+export function adoptCharacter(
+  raw: unknown,
+  version: number,
+  source = 'data',
+): { ok: true; character: Character } | { ok: false; error: string } {
+  if (!isSupportedVersion(version)) {
+    return {
+      ok: false,
+      error: `Schema version mismatch: ${source} is v${version}, app expects v${SCHEMA_VERSION}. Export the character again to upgrade.`,
+    };
+  }
+  if (!isCharacter(raw)) {
+    return { ok: false, error: 'Character data is malformed or incomplete.' };
+  }
+
+  const character = raw;
+  // Migrate: inject uids for old saves that lack them
+  if (Array.isArray(character.selectedAbilities)) {
+    character.selectedAbilities = migrateSelectedAbilities(character.selectedAbilities);
+  }
+  // Migrate: drop pre-two-event level-up records (banked AP is preserved separately)
+  character.levelUpHistory = migrateLevelUpHistory(character.levelUpHistory);
+  // Migrate: v.3 modifier + corrected roll→cm table conversions
+  return { ok: true, character: migratePhysical(character, version) };
 }
 
 // ── Debounce helper ───────────────────────────────────────────────────────────
@@ -239,26 +277,7 @@ export async function importCharacterFromFile(
       return { ok: false, error: 'File does not look like a Haikyū character export (missing version or character fields).' };
     }
 
-    if (!SUPPORTED_VERSIONS.includes(parsed.version)) {
-      return {
-        ok: false,
-        error: `Schema version mismatch: file is v${parsed.version}, app expects v${SCHEMA_VERSION}. Export the character again to upgrade.`,
-      };
-    }
-
-    if (!isCharacter(parsed.character)) {
-      return { ok: false, error: 'Character data is malformed or incomplete.' };
-    }
-
-    const character = parsed.character;
-    // Migrate: inject uids for old saves that lack them
-    if (Array.isArray(character.selectedAbilities)) {
-      character.selectedAbilities = migrateSelectedAbilities(character.selectedAbilities);
-    }
-    // Migrate: drop pre-two-event level-up records (banked AP is preserved separately)
-    character.levelUpHistory = migrateLevelUpHistory(character.levelUpHistory);
-    // Migrate: v.3 modifier + corrected roll→cm table conversions
-    return { ok: true, character: migratePhysical(character, parsed.version) };
+    return adoptCharacter(parsed.character, parsed.version, 'file');
   } catch (err) {
     return { ok: false, error: `Unexpected error: ${String(err)}` };
   }

@@ -12,6 +12,7 @@ import { buildDiscordExport } from '../export/discord';
 import { cmDual } from '../utils/units';
 import { choiceLabels } from '../utils/abilityChoices';
 import { SkillRadar } from '../charts/SkillRadar';
+import { CloudSaveButton } from '../cloud/CloudSaveButton';
 
 // ── helpers ─────────────────────────────────────────────────────────────────
 
@@ -181,6 +182,7 @@ export function ReviewStep() {
             >
               {copyState === 'copied' ? 'Copied!' : copyState === 'error' ? 'Failed — try again' : 'Copy for Discord'}
             </button>
+            <CloudSaveButton />
             {graduated ? (
               <button
                 onClick={handleReset}
