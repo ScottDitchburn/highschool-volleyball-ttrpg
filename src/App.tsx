@@ -7,6 +7,8 @@ import { CharacterSheet } from './components/CharacterSheet';
 import { SaveControls } from './components/SaveControls';
 import { AutoPruneNotice } from './components/AutoPruneNotice';
 import { InfoWidget } from './components/InfoWidget';
+import { CloudProvider } from './cloud/auth';
+import { CloudWidget } from './cloud/CloudWidget';
 import { PhysicalStep } from './steps/PhysicalStep';
 import { ReachesStep } from './steps/ReachesStep';
 import { SkillsStep } from './steps/SkillsStep';
@@ -226,6 +228,7 @@ function Wizard() {
           <span className="text-charcoal-500 text-sm ml-2">Gauntlet Builder</span>
         </div>
         <div className="flex items-center gap-3">
+          <CloudWidget />
           <InfoWidget />
           <span className="text-charcoal-400 text-sm hidden sm:block truncate max-w-[12rem]">
             {character.name || 'Unnamed Player'}
@@ -358,7 +361,11 @@ export default function App() {
 
   return (
     <CharacterProvider>
-      <AppInner onCoach={() => navigate('/Coach')} />
+      {/* Cloud saves are optional and additive — with no Supabase env vars the
+          provider creates no client and CloudWidget renders nothing. */}
+      <CloudProvider>
+        <AppInner onCoach={() => navigate('/Coach')} />
+      </CloudProvider>
     </CharacterProvider>
   );
 }

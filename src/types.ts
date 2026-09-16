@@ -257,6 +257,15 @@ export interface Character {
   name: string;
   schoolYear: SchoolYear;
 
+  /**
+   * Row id of this character in the optional Supabase `characters` table.
+   * Purely a bookmark for cloud saves: set when the character was saved to or
+   * loaded from your own cloud slot, absent otherwise. The engine ignores it,
+   * persistence carries it along, and loading someone else's public character
+   * strips it so saving makes a fresh copy of your own.
+   */
+  cloudId?: string;
+
   /** True once the 3rd-year Spring Interhigh has been applied (year shows "Graduate"). */
   graduated?: boolean;
 
