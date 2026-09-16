@@ -4,6 +4,7 @@
 
 import type { Character } from '../types';
 import { ABILITY_MAP } from '../data/abilities';
+import { choiceLabels } from '../utils/abilityChoices';
 
 function toRoman(n: number): string {
   const map: Record<number, string> = { 1: 'I', 2: 'II', 3: 'III', 4: 'IV', 5: 'V' };
@@ -20,12 +21,9 @@ export function abilityLabels(character: Character): string[] {
     if (sel.tier > 0 && ability.tiers && ability.tiers[sel.tier - 1]) {
       label += ` (Tier ${toRoman(sel.tier)}: ${ability.tiers[sel.tier - 1].label})`;
     }
-    const choiceEntries = Object.entries(sel.chooserSelections);
-    if (choiceEntries.length > 0) {
-      const choices = choiceEntries
-        .map(([, v]) => (Array.isArray(v) ? (v as string[]).join('+') : String(v)))
-        .join(', ');
-      label += ` [${choices}]`;
+    const choices = choiceLabels(ability, sel);
+    if (choices.length > 0) {
+      label += ` [${choices.join(', ')}]`;
     }
     labels.push(label);
   }

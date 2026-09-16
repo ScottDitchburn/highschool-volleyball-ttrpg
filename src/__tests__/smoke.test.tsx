@@ -96,6 +96,7 @@ const FULL_CHARACTER: Character = {
   },
   reaches: {
     effectiveHeightCm: 184,
+    effectiveVerticalCm: 60,
     standingReachCm: 239.2,  // 1.3 * 184
     spikingReachCm:  299.2,  // 239.2 + 60
     blockingReachCm: 290.2,  // 239.2 + 0.85*60
@@ -136,8 +137,8 @@ const FULL_CHARACTER: Character = {
     experienceBonus: 2,
     levelUpGains: 0,
     total: 19,
-    spent: 5,       // one Training
-    remaining: 14,
+    spent: 6,       // one Training (v.3: 6 AP)
+    remaining: 13,
   },
   selectedAbilities: [
     {
@@ -511,7 +512,7 @@ describe('Ability data sanity', () => {
     const training = ABILITY_MAP['training'];
     expect(training).toBeDefined();
     expect(training.repeatable).toBe(true);
-    expect(training.baseCost).toBe(5);
+    expect(training.baseCost).toBe(6); // v.3: "Training Cost: 6 AP" (was 5)
   });
 
   it('all abilities in ABILITY_MAP have valid id, name, baseCost', () => {

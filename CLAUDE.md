@@ -1,6 +1,6 @@
 # CLAUDE.md
 
-Character builder for the **Haikyū: Gauntlet RPG v2** tabletop system. React + Vite + Tailwind SPA, deployed on Vercel.
+Character builder for the **Haikyū: Gauntlet RPG v3** tabletop system. React + Vite + Tailwind SPA, deployed on Vercel.
 
 - Repo: https://github.com/ScottDitchburn/highschool-volleyball-ttrpg
 - Live: https://washioisbae.vercel.app/
@@ -18,7 +18,8 @@ Node 20+.
 
 ## Key locations
 
-- [src/data/abilities.ts](src/data/abilities.ts) — single source of truth for all ~40 abilities. Schema is the `Ability` type in [src/types.ts](src/types.ts).
+- [src/data/abilities.ts](src/data/abilities.ts) — single source of truth for all 45 abilities. Schema is the `Ability` type in [src/types.ts](src/types.ts).
+- [src/engine/effects.ts](src/engine/effects.ts) — the one implementation of "apply the selected abilities' effects" (stats + reaches), shared by the store selectors and the prereq engine.
 - [src/engine/](src/engine/) — `prereqEngine.ts` (effective stats + prereq validation), `apEngine.ts` (Ability Point budget).
 - [src/steps/](src/steps/) — one file per wizard step (Physical → Reaches → Skills → Year/Experience → Abilities → Review).
 - [src/state/characterStore.tsx](src/state/characterStore.tsx) — React context + reducer; [persistence.ts](src/state/persistence.ts) handles localStorage + JSON import/export.
@@ -30,7 +31,7 @@ Node 20+.
 
 - [PLAN.md](PLAN.md) — locked design decisions, system model (stat/reach/AP formulas), screen-by-screen UX. Read this for game rules.
 - [DATA_NOTES.md](DATA_NOTES.md) — every interpretation of the WIP rules source. **Update it whenever you add or change an ability in `abilities.ts`.**
-- `Haikyu_ Gauntlet RPG v.2.md` — the raw WIP rules document.
+- `Haikyu_ Gauntlet RPG v.3.md` — the raw WIP rules document (v.2 is in git history).
 
 ## Conventions
 

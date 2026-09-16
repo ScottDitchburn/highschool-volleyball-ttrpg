@@ -1,10 +1,17 @@
 // src/data/abilities.ts
 // Single source of truth for all ability definitions.
 // See DATA_NOTES.md for interpretation log of every ambiguity / judgment call.
-import type { Ability } from '../types';
+import type { Ability, SkillStat } from '../types';
+import { VB_SKILL_STAT_NAMES } from '../types';
 
 /**
- * All 40 abilities from the Haikyū: Gauntlet RPG v2 rules (Abilities WIP table).
+ * The six stats Training and Quick Learner may raise in v.3
+ * ("Serve, Spike, Set, Pass, Dig, or Block Stats"). v.2 allowed "any Stat".
+ */
+const VB_SKILLS: SkillStat[] = [...VB_SKILL_STAT_NAMES];
+
+/**
+ * All 45 abilities from the Haikyū: Gauntlet RPG v.3 rules (Abilities WIP table).
  * Encoded per PLAN.md §3 schema and types.ts. See DATA_NOTES.md for every
  * ambiguity, non-monotonic cost, and judgment call.
  */
@@ -14,30 +21,104 @@ export const ABILITIES: Ability[] = [
   {
     id: 'training',
     name: 'Training',
-    baseCost: 5,
+    baseCost: 6,
     repeatable: true,
     prereqs: [],
     effects: [
-      { kind: 'statDelta', choose: 'any', delta: 0.25 },
+      { kind: 'statDelta', choose: VB_SKILLS, delta: 0.25 },
+      { kind: 'statDelta', stat: 'Stamina', delta: -0.25 },
     ],
-    notes: 'No maxTimes listed; purchasable unlimited times (repeatable:true). +0.25 to any Stat.',
+    notes:
+      'v.3: 6 AP (was 5). +0.25 to ONE of Serve, Spike, Set, Pass, Dig or Block ' +
+      '(v.2 allowed any Stat), AND -0.25 Stamina per purchase. ' +
+      'No maxTimes listed; purchasable unlimited times (repeatable:true).',
   },
 
   {
     id: 'quick-learner',
     name: 'Quick Learner',
-    baseCost: 3,
+    baseCost: 4,
     maxTimes: 5,
     prereqs: [
       { kind: 'noStatAtLeast', min: 3.75 },
     ],
     effects: [
-      { kind: 'statDelta', choose: 'any', delta: 0.25 },
+      { kind: 'statDelta', choose: VB_SKILLS, delta: 0.25 },
+      { kind: 'statDelta', stat: 'Stamina', delta: -0.25 },
     ],
     notes:
-      'Global inverse gate: cannot be SELECTED once any skill is at 3.75 or higher. ' +
-      'The gate only blocks the initial pick; an owned copy is never auto-removed if a ' +
-      'skill later rises (even to 4.0+). +0.25 to any Stat. Max 5 times.',
+      'v.3: 4 AP (was 3). "No VB Stat 3.75 or higher" — VB is shorthand for volleyball, ' +
+      'i.e. all ten stats, so the global inverse gate is unchanged: cannot be SELECTED ' +
+      'once any skill is at 3.75 or higher. The gate only blocks the initial pick; an ' +
+      'owned copy is never auto-removed if a skill later rises (even to 4.0+). ' +
+      '+0.25 to ONE of Serve, Spike, Set, Pass, Dig or Block, AND -0.25 Stamina. Max 5 times.',
+  },
+
+  // ── Row 1b (new in v.3) ────────────────────────────────────────────────────
+
+  {
+    id: 'rest',
+    name: 'Rest',
+    baseCost: 2,
+    repeatable: true,
+    prereqs: [],
+    effects: [
+      { kind: 'statDelta', stat: 'Stamina', delta: 0.25 },
+    ],
+    notes:
+      'New in v.3. 2 AP, no prereq. +0.25 Stamina. No "(N)" in the source, so it ' +
+      'follows the repo convention for uncapped abilities (repeatable:true, like ' +
+      'Training and Fan): purchasable unlimited times at a flat 2 AP per copy.',
+  },
+
+  {
+    id: 'weight-lifting',
+    name: 'Weight Lifting',
+    baseCost: 3,
+    maxTimes: 3,
+    prereqs: [],
+    effects: [
+      {
+        kind: 'optionChoice',
+        prompt: 'Hone your physique — choose one',
+        options: [
+          {
+            id: 'speed',
+            label: '+0.25 Speed',
+            effects: [{ kind: 'statDelta', stat: 'Speed', delta: 0.25 }],
+          },
+          {
+            id: 'power',
+            label: '+0.25 Power',
+            effects: [{ kind: 'statDelta', stat: 'Power', delta: 0.25 }],
+          },
+          {
+            id: 'vertical',
+            label: '+3 cm Vertical Jump',
+            effects: [{ kind: 'verticalDelta', cm: 3 }],
+          },
+        ],
+      },
+      { kind: 'statDelta', stat: 'Stamina', delta: -0.5 },
+    ],
+    notes:
+      'New in v.3. 3 AP, no prereq, max 3 times. Each purchase picks ONE of ' +
+      '+0.25 Speed / +0.25 Power / +3 cm Vertical Jump; the Vertical Jump bonus ' +
+      'raises effective Spiking and Blocking Reach. -0.5 Stamina applies every purchase ' +
+      'regardless of the pick.',
+  },
+
+  {
+    id: 'game-study',
+    name: 'Game Study',
+    baseCost: 2,
+    maxTimes: 3,
+    prereqs: [],
+    effects: [
+      { kind: 'statDelta', stat: 'IQ', delta: 0.25 },
+      { kind: 'statDelta', stat: 'Stamina', delta: -0.25 },
+    ],
+    notes: 'New in v.3. 2 AP, no prereq, max 3 times. +0.25 IQ and -0.25 Stamina per purchase.',
   },
 
   // ── Row 2 ──────────────────────────────────────────────────────────────────
@@ -122,23 +203,23 @@ export const ABILITIES: Ability[] = [
   {
     id: 'boom-jump-technique',
     name: 'Boom Jump Technique',
-    baseCost: 4,
+    baseCost: 7,
     prereqs: [],
     effects: [
       { kind: 'spikingReachDelta', cm: 6 },
     ],
-    notes: '+6 cm to Spiking Reach. No prereqs.',
+    notes: 'v.3: 7 AP (was 4). +6 cm to Spiking Reach. No prereqs.',
   },
 
   {
     id: 'growth-spurt',
     name: 'Growth Spurt',
-    baseCost: 5,
+    baseCost: 9,
     prereqs: [],
     effects: [
       { kind: 'heightDelta', cm: 8 },
     ],
-    notes: '+8 cm to Height. No prereqs.',
+    notes: 'v.3: 9 AP (was 5). +8 cm to Height. No prereqs.',
   },
 
   // ── Row 5 ──────────────────────────────────────────────────────────────────
@@ -649,14 +730,12 @@ export const ABILITIES: Ability[] = [
     ],
     effects: [
       { kind: 'statDelta', stat: 'Power', delta: 0.25 },
-      { kind: 'statDelta', choose: ['Dig', 'Block'], delta: -0.25 },
+      { kind: 'statDelta', choose: ['Stamina', 'IQ'], delta: -0.25 },
     ],
     notes:
       'Max 1 time. Effects: +0.25 Power. Then -0.25 from either Stamina OR IQ (player chooses). ' +
-      "The Effect type's choose union only supports ['Dig','Block'] as a literal tuple array; " +
-      "Stamina/IQ is not a supported literal pair. Encoded as choose:['Dig','Block'] with " +
-      'delta:-0.25 so the type compiles. The runtime engine MUST treat this chooser as ' +
-      'Stamina-or-IQ per the source rules, not Dig-or-Block. See DATA_NOTES.md.',
+      "Encoded directly as choose:['Stamina','IQ'] now that `choose` takes any explicit " +
+      'stat list; the old special-cased Dig/Block placeholder is gone.',
   },
 
   // ── Row 19 ─────────────────────────────────────────────────────────────────
@@ -723,8 +802,68 @@ export const ABILITIES: Ability[] = [
     effects: [],
     notes:
       'No tiers. No maxTimes. Effect: target an opposing player; if their IQ < yours, ' +
-      'reduce one of their Stats by -0.5. Entirely an inter-character in-play effect; ' +
+      'reduce one of their Stats by -0.5 FOR THE GAME (v.3 clarified the duration). ' +
+      'Entirely an inter-character in-play effect; ' +
       'no creation-time self stat delta. Left as descriptive only.',
+  },
+
+  // ── Row 21 (new in v.3) ────────────────────────────────────────────────────
+
+  {
+    id: 'flexibility',
+    name: 'Flexibility',
+    baseCost: 4,
+    maxTimes: 2,
+    prereqs: [
+      { kind: 'stat', stat: 'Stamina', min: 3.25 },
+    ],
+    effects: [
+      {
+        kind: 'optionChoice',
+        prompt: 'Choose one of the following',
+        options: [
+          {
+            id: 'spin',
+            label: 'Major spin',
+            detail:
+              'You inflict major spin on every spike and serve, causing it to bounce and curve widely.',
+          },
+          {
+            id: 'midair-rotation',
+            label: 'Midair rotation',
+            detail:
+              'You are able to rotate your core and shoulders midair, opening up new hitting angles.',
+          },
+        ],
+      },
+    ],
+    notes:
+      'New in v.3. 4 AP, prereq Stamina 3.25+. The source lists no "(N)"; per the ' +
+      'rules-owner decision the ability may be purchased at most twice (maxTimes 2), ' +
+      'and each purchase records one of the two options — the two purchases may pick ' +
+      'the same option or different ones. Both options are narrative only (no stat or ' +
+      'reach effect), but the recorded pick is shown on Review, the print sheet and the ' +
+      'Discord export.',
+  },
+
+  {
+    id: 'playcalling',
+    name: 'Playcalling',
+    baseCost: 2,
+    prereqs: [
+      { kind: 'stat', stat: 'IQ',  min: 3 },
+      { kind: 'stat', stat: 'Set', min: 3.5 },
+    ],
+    tiers: [
+      { label: 'Kageyama Plays', addCost: 0 },
+      { label: 'Oikawa Plays',   addCost: 2 },
+      { label: 'Kenma Plays',    addCost: 3 },
+    ],
+    effects: [],
+    notes:
+      'New in v.3. 2 AP, prereq IQ 3+ AND Set 3.5+. Three tiers (I-III); Tier I has ' +
+      'addCost 0 (base cost covers it). Call combination plays to give your hitters an ' +
+      'advantage — in-play only, no creation-time stat delta.',
   },
 ];
 

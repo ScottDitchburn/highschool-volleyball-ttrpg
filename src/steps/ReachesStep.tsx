@@ -92,10 +92,13 @@ export function ReachesStep() {
         <h2 className="text-2xl font-bold text-orange-400 mb-1">Derived Reaches</h2>
         <p className="text-charcoal-400 text-sm">
           All three reaches are computed automatically from your{' '}
-          <strong className="text-charcoal-200">Height ({physical.heightCm} cm)</strong> and{' '}
           <strong className="text-charcoal-200">
-            Vertical Jump ({physical.verticalCm} cm, mod {formatVerticalModifier(physical.verticalModifier)})
-          </strong>.
+            Height ({(derivedReaches?.effectiveHeightCm ?? physical.heightCm).toFixed(1)} cm)
+          </strong> and{' '}
+          <strong className="text-charcoal-200">
+            Vertical Jump ({derivedReaches?.effectiveVerticalCm ?? physical.verticalCm} cm, mod {formatVerticalModifier(physical.verticalModifier)})
+          </strong>{' '}
+          (including any ability bonuses, e.g. Growth Spurt or Weight Lifting).
           The charts show the population distribution across all possible 3d10 roll combinations,
           with the v.3 Height -&gt; Vert Jump Modifier applied.
         </p>

@@ -3,7 +3,7 @@
 // Handles: prereq display, tier selector, AP cost, chooser selectors.
 // Supports multi-instance (repeatable) abilities via per-instance controls.
 
-import type { Ability, SelectedAbility, SkillStat } from '../types';
+import type { Ability, AbilityOption, ChooseSpec, SelectedAbility, SkillStat } from '../types';
 import { SKILL_STAT_NAMES } from '../types';
 import type { AbilityEvaluation, PrereqResult } from '../engine/prereqEngine';
 import { cumulativeCost } from '../engine/prereqEngine';
@@ -13,19 +13,12 @@ import { toRomanNumeral } from '../utils/roman';
 // Chooser options
 // ---------------------------------------------------------------------------
 
-/** Returns the list of stat options for a chooser effect on a given ability + effectIndex */
-export function getChooserOptions(
-  abilityId: string,
-  _effectIndex: number,
-  choose: 'any' | 'twoSkills' | ['Dig', 'Block'],
-): SkillStat[] {
-  // Special case: aggressive-spiker's penalty is encoded as ['Dig','Block'] but should be Stamina/IQ
-  if (abilityId === 'aggressive-spiker') {
-    return ['Stamina', 'IQ'];
-  }
-  if (Array.isArray(choose)) {
-    return choose as SkillStat[];
-  }
+/** The stats a `statDelta` chooser offers. */
+export function getChooserOptions(choose: ChooseSpec): SkillStat[] {
+  // An explicit shortlist is used as-is: the six VB skills (Training, Quick
+  // Learner), ['Dig','Block'] (Footage Maestro), ['Stamina','IQ'] (Aggressive
+  // Spiker), …
+  if (Array.isArray(choose)) return choose;
   // 'any' or 'twoSkills' → all 10 stats
   return SKILL_STAT_NAMES as unknown as SkillStat[];
 }
@@ -63,7 +56,7 @@ interface AbilityCardProps {
   onSelect: () => void;
   onDeselect: (uid: string) => void;
   onTierChange: (uid: string, tier: number) => void;
-  onChooserChange: (uid: string, effectIndex: number, choice: SkillStat | SkillStat[]) => void;
+  onChooserChange: (uid: string, effectIndex: number, choice: SkillStat | SkillStat[] | string) => void;
 }
 
 // ---------------------------------------------------------------------------
@@ -241,7 +234,7 @@ interface InstanceControlsProps {
   apRemaining: number;
   onDeselect: () => void;
   onTierChange: (tier: number) => void;
-  onChooserChange: (effectIndex: number, choice: SkillStat | SkillStat[]) => void;
+  onChooserChange: (effectIndex: number, choice: SkillStat | SkillStat[] | string) => void;
 }
 
 function InstanceControls({
@@ -293,20 +286,34 @@ function InstanceControls({
 
       {/* Chooser selectors */}
       {ability.effects?.map((effect, effectIndex) => {
-        if (effect.kind !== 'statDelta' || !effect.choose) return null;
-        const options = getChooserOptions(ability.id, effectIndex, effect.choose as 'any' | 'twoSkills' | ['Dig', 'Block']);
-        const isTwoSkills = effect.choose === 'twoSkills';
         const currentChoice = instance.chooserSelections[effectIndex];
+
+        // "Choose one of the following" — Weight Lifting, Flexibility
+        if (effect.kind === 'optionChoice') {
+          return (
+            <OptionSelector
+              key={effectIndex}
+              prompt={effect.prompt}
+              options={effect.options}
+              currentChoice={typeof currentChoice === 'string' ? currentChoice : undefined}
+              onChange={(optionId) => onChooserChange(effectIndex, optionId)}
+            />
+          );
+        }
+
+        if (effect.kind !== 'statDelta' || !effect.choose) return null;
+        const options = getChooserOptions(effect.choose);
+        const isTwoSkills = effect.choose === 'twoSkills';
 
         return (
           <ChooserSelector
             key={effectIndex}
-            abilityId={ability.id}
-            effectIndex={effectIndex}
             delta={effect.delta}
             options={options}
             isTwoSkills={isTwoSkills}
-            currentChoice={currentChoice}
+            currentChoice={Array.isArray(currentChoice) || currentChoice === undefined
+              ? currentChoice
+              : (currentChoice as SkillStat)}
             onChange={(choice) => onChooserChange(effectIndex, choice)}
           />
         );
@@ -384,8 +391,6 @@ function TierSelector({ ability, selectedTier, canAffordTier, onTierChange }: Ti
 // ---------------------------------------------------------------------------
 
 interface ChooserSelectorProps {
-  abilityId: string;
-  effectIndex: number;
   delta: number;
   options: SkillStat[];
   isTwoSkills: boolean;
@@ -394,21 +399,17 @@ interface ChooserSelectorProps {
 }
 
 function ChooserSelector({
-  abilityId,
-  effectIndex,
   delta,
   options,
   isTwoSkills,
   currentChoice,
   onChange,
 }: ChooserSelectorProps) {
-  const label = abilityId === 'aggressive-spiker' && effectIndex === 1
-    ? `−0.25 from (Stamina or IQ)`
-    : isTwoSkills
-      ? `Choose two stats (in-game effect)`
-      : delta >= 0
-        ? `+${delta} to`
-        : `${delta} to`;
+  const label = isTwoSkills
+    ? `Choose two stats (in-game effect)`
+    : delta >= 0
+      ? `+${delta} to`
+      : `${delta} to`;
 
   if (isTwoSkills) {
     const current = Array.isArray(currentChoice) ? (currentChoice as SkillStat[]) : [];
@@ -475,6 +476,50 @@ function ChooserSelector({
           );
         })}
       </div>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Option selector sub-component ("choose one of the following")
+// ---------------------------------------------------------------------------
+
+interface OptionSelectorProps {
+  prompt: string;
+  options: AbilityOption[];
+  currentChoice: string | undefined;
+  onChange: (optionId: string) => void;
+}
+
+function OptionSelector({ prompt, options, currentChoice, onChange }: OptionSelectorProps) {
+  const chosen = options.find((o) => o.id === currentChoice);
+
+  return (
+    <div className="flex flex-col gap-1.5 bg-charcoal-800/50 rounded-lg p-2">
+      <div className="text-xs text-charcoal-400 font-semibold">{prompt}</div>
+      <div className="flex flex-wrap gap-1">
+        {options.map((option) => {
+          const isChosen = option.id === currentChoice;
+          return (
+            <button
+              key={option.id}
+              onClick={() => onChange(option.id)}
+              title={option.detail ?? option.label}
+              aria-pressed={isChosen}
+              className={`text-xs px-2 py-0.5 rounded border transition-colors
+                ${isChosen
+                  ? 'border-orange-500 bg-orange-500/20 text-orange-300 font-bold'
+                  : 'border-charcoal-600 text-charcoal-300 hover:border-orange-500 hover:text-orange-400'
+                }`}
+            >
+              {option.label}
+            </button>
+          );
+        })}
+      </div>
+      {chosen?.detail && (
+        <p className="text-xs text-charcoal-500 leading-relaxed">{chosen.detail}</p>
+      )}
     </div>
   );
 }
