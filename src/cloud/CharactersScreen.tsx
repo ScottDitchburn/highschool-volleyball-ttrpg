@@ -1,0 +1,365 @@
+// ─────────────────────────────────────────────────────────────────────────────
+// CharactersScreen — the /Characters route.
+//
+// One searchable, sortable table of every character the viewer owns plus
+// everything other players have made public. Owner is always the first
+// column. Signed-out visitors see the public rows and a sign-in prompt.
+// ─────────────────────────────────────────────────────────────────────────────
+
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCharacter } from '../state/characterStore';
+import { useCloudAuth } from './authContext';
+import { listMine, listPublic, load, remove, setPublic } from './characters';
+import { shortDate } from './format';
+import type { CloudCharacterSummary } from './types';
+import {
+  DEFAULT_SORT,
+  filterRows,
+  mergeCharacterRows,
+  nextSort,
+  sortRows,
+  type CharacterTableRow,
+  type SortKey,
+  type SortSpec,
+  type TableScope,
+} from './tableModel';
+import { requestWizardOnReturn } from '../navigation';
+
+interface Props {
+  onBack: () => void;
+}
+
+interface LoadState {
+  loading: boolean;
+  error: string | null;
+  mine: CloudCharacterSummary[];
+  shared: CloudCharacterSummary[];
+}
+
+const COLUMNS: { key: SortKey; label: string; align?: 'right' }[] = [
+  { key: 'owner', label: 'Owner' },
+  { key: 'name', label: 'Character' },
+  { key: 'year', label: 'Year' },
+  { key: 'height', label: 'Height', align: 'right' },
+  { key: 'vertical', label: 'Vertical', align: 'right' },
+  { key: 'abilities', label: 'Abilities', align: 'right' },
+  { key: 'visibility', label: 'Visibility' },
+  { key: 'updated', label: 'Updated' },
+];
+
+function cm(value: number | null): string {
+  return value === null ? '—' : `${value.toFixed(0)} cm`;
+}
+
+export function CharactersScreen({ onBack }: Props) {
+  const auth = useCloudAuth();
+  const { character, dispatch } = useCharacter();
+  const [state, setState] = useState<LoadState>({ loading: true, error: null, mine: [], shared: [] });
+  const [query, setQuery] = useState('');
+  const [scope, setScope] = useState<TableScope>('all');
+  const [sort, setSort] = useState<SortSpec>(DEFAULT_SORT);
+  const [busyId, setBusyId] = useState<string | null>(null);
+
+  const signedIn = auth.userId !== null;
+
+  const refresh = useCallback(async () => {
+    if (!auth.client) return;
+    setState((prev) => ({ ...prev, loading: true, error: null }));
+    const [mine, shared] = await Promise.all([
+      auth.userId ? listMine(auth.client, auth.userId) : Promise.resolve({ ok: true as const, value: [] }),
+      listPublic(auth.client, 500),
+    ]);
+    const errors = [mine, shared].filter((r) => !r.ok).map((r) => (r.ok ? '' : r.error));
+    setState({
+      loading: false,
+      error: errors.length ? errors.join(' ') : null,
+      mine: mine.ok ? mine.value : [],
+      shared: shared.ok ? shared.value : [],
+    });
+  }, [auth.client, auth.userId]);
+
+  useEffect(() => {
+    if (auth.loading) return;
+    void refresh();
+  }, [auth.loading, refresh]);
+
+  // Merge at render time so the owner column picks up the Discord display name
+  // as soon as the profile arrives, without refetching the lists.
+  const rows = useMemo(
+    () => mergeCharacterRows(state.mine, state.shared, auth.displayName),
+    [state.mine, state.shared, auth.displayName],
+  );
+  const visible = useMemo(
+    () => sortRows(filterRows(rows, query, scope), sort),
+    [rows, query, scope, sort],
+  );
+
+  const handleLoad = async (row: CharacterTableRow) => {
+    if (!auth.client) return;
+    const prompt =
+      row.source === 'mine'
+        ? `Load "${row.name}"? This replaces the character you are building.`
+        : `Load a copy of "${row.name}"? This replaces the character you are building.`;
+    if (!window.confirm(prompt)) return;
+    setBusyId(row.id);
+    const result = await load(auth.client, row.id, auth.userId);
+    setBusyId(null);
+    if (!result.ok) {
+      setState((prev) => ({ ...prev, error: result.error }));
+      return;
+    }
+    dispatch({ type: 'IMPORT_CHARACTER', character: result.value });
+    requestWizardOnReturn();
+    onBack();
+  };
+
+  const handleDelete = async (row: CharacterTableRow) => {
+    if (!auth.client) return;
+    if (!window.confirm(`Delete "${row.name}" from the cloud? This cannot be undone.`)) return;
+    setBusyId(row.id);
+    const result = await remove(auth.client, row.id);
+    setBusyId(null);
+    if (!result.ok) {
+      setState((prev) => ({ ...prev, error: result.error }));
+      return;
+    }
+    if (character.cloudId === row.id) dispatch({ type: 'SET_CLOUD_ID', cloudId: null });
+    setState((prev) => ({
+      ...prev,
+      mine: prev.mine.filter((r) => r.id !== row.id),
+      shared: prev.shared.filter((r) => r.id !== row.id),
+    }));
+  };
+
+  const handleToggle = async (row: CharacterTableRow) => {
+    if (!auth.client) return;
+    const next = !row.isPublic;
+    setBusyId(row.id);
+    const result = await setPublic(auth.client, row.id, next);
+    setBusyId(null);
+    if (!result.ok) {
+      setState((prev) => ({ ...prev, error: result.error }));
+      return;
+    }
+    setState((prev) => ({
+      ...prev,
+      mine: prev.mine.map((r) => (r.id === row.id ? { ...r, isPublic: next } : r)),
+      // Un-publishing removes it from the public listing; re-publishing shows up on refresh.
+      shared: next ? prev.shared : prev.shared.filter((r) => r.id !== row.id),
+    }));
+  };
+
+  const sortIndicator = (key: SortKey) =>
+    sort.key === key ? (sort.direction === 'asc' ? ' ▲' : ' ▼') : '';
+
+  return (
+    <div className="flex flex-col min-h-screen bg-court">
+      <header className="bg-charcoal-950 border-b border-charcoal-800 px-4 py-3 flex items-center justify-between gap-3">
+        <div className="flex items-center gap-3">
+          <button type="button" onClick={onBack} className="btn-ghost text-sm py-1.5 px-3">
+            ← Builder
+          </button>
+          <div>
+            <span className="text-orange-400 font-black text-lg tracking-tight">Haikyuu</span>
+            <span className="text-charcoal-500 text-sm ml-2">Characters</span>
+          </div>
+        </div>
+        <div className="flex items-center gap-2">
+          {auth.configured && !signedIn && (
+            <button
+              type="button"
+              onClick={() => void auth.signInWithDiscord()}
+              disabled={auth.loading}
+              className="btn-ghost text-sm py-1.5 px-3 disabled:opacity-40"
+            >
+              Sign in with Discord
+            </button>
+          )}
+          {signedIn && (
+            <span className="text-charcoal-400 text-sm hidden sm:flex items-center gap-1.5">
+              {auth.avatarUrl && <img src={auth.avatarUrl} alt="" className="w-5 h-5 rounded-full" />}
+              {auth.displayName ?? 'Discord user'}
+            </span>
+          )}
+        </div>
+      </header>
+
+      <main className="flex-1 p-4 md:p-6 flex flex-col gap-4 max-w-7xl w-full mx-auto">
+        {!auth.configured ? (
+          <p className="text-charcoal-400 text-sm">
+            Cloud saves are not configured for this build, so there are no characters to browse.
+          </p>
+        ) : (
+          <>
+            <div className="flex flex-wrap items-center gap-3">
+              <input
+                type="search"
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder="Search by owner, character or year…"
+                aria-label="Search characters"
+                className="flex-1 min-w-[14rem] bg-charcoal-800 border border-charcoal-600 rounded-lg px-4 py-2
+                           text-charcoal-100 placeholder:text-charcoal-600 focus:outline-none
+                           focus:border-orange-600 focus:ring-1 focus:ring-orange-600"
+              />
+              <div className="flex items-center gap-1" role="group" aria-label="Show">
+                {(['all', 'mine', 'public'] as TableScope[])
+                  .filter((s) => s !== 'mine' || signedIn)
+                  .map((s) => (
+                    <button
+                      key={s}
+                      type="button"
+                      onClick={() => setScope(s)}
+                      aria-pressed={scope === s}
+                      className={`text-xs font-bold uppercase tracking-wider py-1.5 px-3 rounded-lg border transition-colors ${
+                        scope === s
+                          ? 'bg-orange-600 border-orange-500 text-white'
+                          : 'btn-ghost'
+                      }`}
+                    >
+                      {s === 'all' ? 'All' : s === 'mine' ? 'Mine' : 'Public'}
+                    </button>
+                  ))}
+              </div>
+              <button
+                type="button"
+                onClick={() => void refresh()}
+                disabled={state.loading}
+                className="btn-ghost text-xs py-1.5 px-3 disabled:opacity-40"
+              >
+                Refresh
+              </button>
+            </div>
+
+            {!signedIn && (
+              <p className="text-charcoal-500 text-xs">
+                Showing public characters only. Sign in with Discord to see and manage your own.
+              </p>
+            )}
+
+            {state.error && (
+              <p className="text-red-400 text-sm" role="alert">
+                {state.error}
+              </p>
+            )}
+
+            <div className="card p-0 overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="text-left text-xs uppercase tracking-wider text-charcoal-500 border-b border-charcoal-800">
+                    {COLUMNS.map((col) => (
+                      <th
+                        key={col.key}
+                        scope="col"
+                        className={`px-3 py-2 font-bold whitespace-nowrap ${col.align === 'right' ? 'text-right' : ''}`}
+                        aria-sort={
+                          sort.key === col.key
+                            ? sort.direction === 'asc' ? 'ascending' : 'descending'
+                            : 'none'
+                        }
+                      >
+                        <button
+                          type="button"
+                          onClick={() => setSort((s) => nextSort(s, col.key))}
+                          className="hover:text-orange-400"
+                        >
+                          {col.label}
+                          {sortIndicator(col.key)}
+                        </button>
+                      </th>
+                    ))}
+                    <th scope="col" className="px-3 py-2 font-bold text-right">
+                      Actions
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {state.loading ? (
+                    <tr>
+                      <td colSpan={COLUMNS.length + 1} className="px-3 py-6 text-charcoal-500 italic">
+                        Loading characters…
+                      </td>
+                    </tr>
+                  ) : visible.length === 0 ? (
+                    <tr>
+                      <td colSpan={COLUMNS.length + 1} className="px-3 py-6 text-charcoal-500 italic">
+                        {rows.length === 0
+                          ? 'No characters yet. Save one to the cloud from the Review step.'
+                          : 'No characters match that search.'}
+                      </td>
+                    </tr>
+                  ) : (
+                    visible.map((row) => (
+                      <tr
+                        key={row.id}
+                        className="border-b border-charcoal-800/60 hover:bg-charcoal-800/40"
+                      >
+                        <td className="px-3 py-2 whitespace-nowrap">
+                          <span className={row.source === 'mine' ? 'text-orange-300 font-semibold' : 'text-charcoal-200'}>
+                            {row.ownerLabel}
+                          </span>
+                        </td>
+                        <td className="px-3 py-2 font-semibold text-charcoal-100">{row.name}</td>
+                        <td className="px-3 py-2 whitespace-nowrap text-charcoal-300">{row.yearLabel}</td>
+                        <td className="px-3 py-2 text-right font-mono text-charcoal-300">{cm(row.heightCm)}</td>
+                        <td className="px-3 py-2 text-right font-mono text-charcoal-300">{cm(row.verticalCm)}</td>
+                        <td className="px-3 py-2 text-right font-mono text-charcoal-300">{row.abilityCount}</td>
+                        <td className="px-3 py-2 whitespace-nowrap">
+                          {row.source === 'mine' ? (
+                            <label className="flex items-center gap-1.5 text-xs text-charcoal-400 cursor-pointer select-none">
+                              <input
+                                type="checkbox"
+                                checked={row.isPublic}
+                                disabled={busyId === row.id}
+                                onChange={() => void handleToggle(row)}
+                                className="w-3.5 h-3.5 accent-orange-500"
+                                aria-label={`Make ${row.name} public`}
+                              />
+                              {row.isPublic ? 'Public' : 'Private'}
+                            </label>
+                          ) : (
+                            <span className="text-xs text-charcoal-500">Public</span>
+                          )}
+                        </td>
+                        <td className="px-3 py-2 whitespace-nowrap text-xs text-charcoal-500">
+                          {shortDate(row.updatedAt)}
+                        </td>
+                        <td className="px-3 py-2 whitespace-nowrap text-right">
+                          <div className="inline-flex items-center gap-1.5">
+                            <button
+                              type="button"
+                              className="btn-ghost text-xs py-1 px-2"
+                              disabled={busyId === row.id}
+                              onClick={() => void handleLoad(row)}
+                            >
+                              {row.source === 'mine' ? 'Load' : 'Load copy'}
+                            </button>
+                            {row.source === 'mine' && (
+                              <button
+                                type="button"
+                                className="btn-ghost text-xs py-1 px-2 text-red-400 hover:text-red-300"
+                                disabled={busyId === row.id}
+                                onClick={() => void handleDelete(row)}
+                                aria-label={`Delete ${row.name}`}
+                              >
+                                Delete
+                              </button>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+
+            <p className="text-charcoal-600 text-xs">
+              {visible.length} of {rows.length} characters shown. Click a column heading to sort.
+            </p>
+          </>
+        )}
+      </main>
+    </div>
+  );
+}

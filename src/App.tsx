@@ -16,6 +16,8 @@ import { YearExperienceStep } from './steps/YearExperienceStep';
 import { AbilitiesStep } from './steps/AbilitiesStep';
 import { ReviewStep } from './steps/ReviewStep';
 import { generateRandomSeed } from './rng/seeded';
+import { CharactersScreen } from './cloud/CharactersScreen';
+import { CHARACTERS_PATH, COACH_PATH as COACH_ROUTE, consumeWizardRequest, navigateTo } from './navigation';
 
 // -- Step definitions --
 
@@ -137,6 +139,15 @@ function NameEntry({ onStart, onCoach }: { onStart: () => void; onCoach: () => v
           title="Open team management to build a roster and starting lineup"
         >
           Coach — Team Management
+        </button>
+
+        <button
+          type="button"
+          onClick={() => navigateTo(CHARACTERS_PATH)}
+          className="btn-ghost"
+          title="Browse every saved character you own plus everything other players made public"
+        >
+          Browse Characters
         </button>
       </div>
 
@@ -317,7 +328,10 @@ function Wizard() {
 type AppState = 'name-entry' | 'wizard';
 
 function AppInner({ onCoach }: { onCoach: () => void }) {
-  const [appState, setAppState] = useState<AppState>('name-entry');
+  // The Characters table asks for the wizard directly after loading a save.
+  const [appState, setAppState] = useState<AppState>(() =>
+    consumeWizardRequest() ? 'wizard' : 'name-entry',
+  );
 
   // Reset (from SaveControls or graduation) clears the session and returns the
   // player to the landing page to enter a new character name.
@@ -334,10 +348,12 @@ function AppInner({ onCoach }: { onCoach: () => void }) {
   return <Wizard />;
 }
 
-// Lightweight routing: /Coach (any case) → coach mode, everything else → builder.
-// No router dependency — just pathname + history.pushState, matching the app's
-// existing zero-router style. (vercel.json rewrites /Coach to index.html.)
+// Lightweight routing: /Coach (any case) → coach mode, /Characters → the cloud
+// characters table, everything else → builder. No router dependency — just
+// pathname + history.pushState, matching the app's existing zero-router style.
+// (vercel.json rewrites every path to index.html.)
 const COACH_PATH = /^\/coach\/?$/i;
+const CHARACTERS_ROUTE = /^\/characters\/?$/i;
 
 export default function App() {
   const [path, setPath] = useState<string>(() => window.location.pathname);
@@ -364,7 +380,11 @@ export default function App() {
       {/* Cloud saves are optional and additive — with no Supabase env vars the
           provider creates no client and CloudWidget renders nothing. */}
       <CloudProvider>
-        <AppInner onCoach={() => navigate('/Coach')} />
+        {CHARACTERS_ROUTE.test(path) ? (
+          <CharactersScreen onBack={() => navigate('/')} />
+        ) : (
+          <AppInner onCoach={() => navigate(COACH_ROUTE)} />
+        )}
       </CloudProvider>
     </CharacterProvider>
   );

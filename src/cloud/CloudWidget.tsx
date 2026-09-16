@@ -17,6 +17,7 @@ import { useCloudSave } from './useCloudSave';
 import { listMine, listPublic, load, remove, setPublic } from './characters';
 import { shortDate, yearBadge } from './format';
 import type { CloudCharacterSummary, CloudClient } from './types';
+import { CHARACTERS_PATH, navigateTo } from '../navigation';
 
 type PanelView = 'menu' | 'mine' | 'public';
 
@@ -336,9 +337,7 @@ export function CloudWidget() {
           </button>
           <button
             type="button"
-            onClick={() => setView((v) => (v === 'public' ? null : 'public'))}
-            aria-expanded={view === 'public'}
-            aria-haspopup="dialog"
+            onClick={() => navigateTo(CHARACTERS_PATH)}
             className="btn-ghost text-sm py-1.5 px-3 hidden sm:flex items-center"
             title="Browse characters other players have shared"
           >
@@ -420,6 +419,17 @@ export function CloudWidget() {
                 className="btn-ghost text-sm py-1.5 px-3 text-left"
               >
                 Public characters
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setView(null);
+                  navigateTo(CHARACTERS_PATH);
+                }}
+                className="btn-ghost text-sm py-1.5 px-3 text-left"
+                title="Searchable table of your characters and every public one"
+              >
+                Browse all characters
               </button>
               <button
                 type="button"
