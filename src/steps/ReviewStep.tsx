@@ -13,6 +13,7 @@ import { downloadCharacterExcel } from '../export/excel';
 import { cmDual } from '../utils/units';
 import { choiceLabels } from '../utils/abilityChoices';
 import { SkillRadar } from '../charts/SkillRadar';
+import { CloudSaveButton } from '../cloud/CloudSaveButton';
 
 // ── helpers ─────────────────────────────────────────────────────────────────
 
@@ -205,6 +206,7 @@ export function ReviewStep() {
             >
               {excelState === 'busy' ? 'Preparing…' : excelState === 'error' ? 'Failed — try again' : 'Export Excel'}
             </button>
+            <CloudSaveButton />
             {graduated ? (
               <button
                 onClick={handleReset}

@@ -25,6 +25,8 @@ Node 20+.
 - [src/state/characterStore.tsx](src/state/characterStore.tsx) — React context + reducer; [persistence.ts](src/state/persistence.ts) handles localStorage + JSON import/export.
 - [src/charts/](src/charts/) — hand-rolled SVG distribution/radar charts and `distributions.ts` (3d10 convolution maths).
 - [src/export/](src/export/) — print sheet, PDF, Discord code-block export, Excel (.xlsx) workbook export (`excel.ts`, lazy-loads `write-excel-file`). Coach-mode equivalents live in [src/coach/export/](src/coach/export/).
+- [src/cloud/](src/cloud/) — optional Supabase cloud saves (Discord sign-in, unlimited characters, per-character public flag). `config.ts` (env vars + `isCloudConfigured()`), `client.ts` (lazy supabase-js), `authContext.ts` + `auth.tsx` (session/profile), `characters.ts` (repository functions taking the client as a parameter), `CloudWidget.tsx` (banner control), `CloudSaveButton.tsx` (Review step). Everything is inert without credentials.
+- [supabase/](supabase/) — SQL migration for the cloud tables/RLS plus the dashboard setup guide ([supabase/README.md](supabase/README.md)).
 - [src/__tests__/](src/__tests__/) — vitest engine + UI tests.
 
 ## Reference docs

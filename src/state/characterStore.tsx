@@ -108,6 +108,7 @@ export type CharacterAction =
   | { type: 'INTERHIGH'; season: InterhighSeason; prelimGames: number; nationalGames: number; heightGainCm: number }
   | { type: 'START_SEEDED_RUN'; seed: string }
   | { type: 'IMPORT_CHARACTER'; character: Character }
+  | { type: 'SET_CLOUD_ID'; cloudId: string | null }
   | { type: 'RESET' };
 
 // ---------------------------------------------------------------------------
@@ -347,6 +348,19 @@ function baseCharacterReducer(state: Character, action: CharacterAction): Charac
 
     case 'IMPORT_CHARACTER':
       return action.character;
+
+    // Bookkeeping only: remembers which cloud row this character was saved to
+    // (null = forget it, so the next cloud save creates a new row).
+    case 'SET_CLOUD_ID': {
+      if (action.cloudId === null) {
+        if (state.cloudId === undefined) return state;
+        const next = { ...state };
+        delete next.cloudId;
+        return next;
+      }
+      if (state.cloudId === action.cloudId) return state;
+      return { ...state, cloudId: action.cloudId };
+    }
 
     case 'RESET':
       return INITIAL_CHARACTER;
