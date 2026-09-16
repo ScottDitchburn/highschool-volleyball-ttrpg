@@ -6,6 +6,12 @@
 // expressed as JS numbers (which are IEEE-754 doubles, sufficient precision here).
 // ─────────────────────────────────────────────────────────────────────────────
 
+import {
+  effectiveVerticalRoll,
+  rollToHeightCm,
+  rollToVerticalCm,
+} from '../types';
+
 /** A PMF entry: a value and its probability (sums to 1 across all entries). */
 export interface PmfPoint {
   value: number;
@@ -80,20 +86,62 @@ export function get4d4AvgPmf(): PmfPoint[] {
 // Physical attribute PMFs (map roll → cm)
 // ─────────────────────────────────────────────────────────────────────────────
 
-/** Height cm PMF: Height = 150 + 2 × roll. Population is 3d10 rolls. */
+/** Height cm PMF: Height = 148 + 2 × roll. Population is 3d10 rolls. */
 export function heightCmPmf(): PmfPoint[] {
   return get3d10Pmf().map(({ value, prob }) => ({
-    value: 150 + 2 * value,
+    value: rollToHeightCm(value),
     prob,
   }));
 }
 
-/** Vertical cm PMF: Vertical = 45 + 3 × roll. Population is 3d10 rolls. */
+/** Collapse a (value, prob) list into a sorted, de-duplicated PMF. */
+function collect(entries: Iterable<[number, number]>): PmfPoint[] {
+  const map = new Map<number, number>();
+  for (const [value, prob] of entries) {
+    map.set(value, (map.get(value) ?? 0) + prob);
+  }
+  return Array.from(map.entries())
+    .map(([value, prob]) => ({ value, prob }))
+    .sort((a, b) => a.value - b.value);
+}
+
+/**
+ * Vertical jump cm PMF, unconditional on height (v.3 rule).
+ *
+ * The vertical jump actually used is `clamp(V + mod(H), 3, 30)`, where H and V
+ * are two independent 3d10 totals and `mod` is the Height → Vert Jump Modifier.
+ * So the marginal distribution of the vertical jump is obtained by pushing the
+ * exact joint pmf P(H) × P(V) through modifier + clamp — no approximation.
+ *
+ * Support is still 48–129 cm, but mass is pulled toward the middle by the clamp.
+ */
 export function verticalCmPmf(): PmfPoint[] {
-  return get3d10Pmf().map(({ value, prob }) => ({
-    value: 45 + 3 * value,
-    prob,
-  }));
+  const pmf3d10 = get3d10Pmf();
+  const entries: [number, number][] = [];
+  for (const { value: hRoll, prob: hProb } of pmf3d10) {
+    for (const { value: vRoll, prob: vProb } of pmf3d10) {
+      entries.push([
+        rollToVerticalCm(effectiveVerticalRoll(hRoll, vRoll)),
+        hProb * vProb,
+      ]);
+    }
+  }
+  return collect(entries);
+}
+
+/**
+ * Vertical jump cm PMF *conditional* on an already-assigned height roll.
+ * Once Height is known the modifier is fixed, so this is just the 3d10 pmf
+ * shifted by mod(heightRoll) and clamped back into 3–30 (the clamp piles the
+ * out-of-range tail onto the end value).
+ */
+export function verticalCmPmfGivenHeightRoll(heightRoll: number): PmfPoint[] {
+  return collect(
+    get3d10Pmf().map(({ value: vRoll, prob }) => [
+      rollToVerticalCm(effectiveVerticalRoll(heightRoll, vRoll)),
+      prob,
+    ] as [number, number]),
+  );
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -119,9 +167,11 @@ export function reachPmf(
   const result = new Map<number, number>();
 
   for (const { value: hRoll, prob: hProb } of h3d10) {
-    const heightCm = 150 + 2 * hRoll;
+    const heightCm = rollToHeightCm(hRoll);
     for (const { value: vRoll, prob: vProb } of v3d10) {
-      const vertCm = 45 + 3 * vRoll;
+      // v.3: the vertical roll is shifted by the height-derived modifier and
+      // clamped to 3–30 before the cm conversion.
+      const vertCm = rollToVerticalCm(effectiveVerticalRoll(hRoll, vRoll));
       const reach = reachFn(heightCm, vertCm);
       // Round to 2 decimal places to bucket floating-point near-equals
       const key = Math.round(reach * 100) / 100;

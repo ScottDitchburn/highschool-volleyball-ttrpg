@@ -53,7 +53,8 @@ interface ChipState {
 }
 
 export function RollPool({
-  poolSize: _poolSize,
+  // `poolSize` stays in the props type (callers pass it) but is unused here —
+  // the chip count comes from `chipValues`.
   slots,
   formatValue = (v) => String(v),
   formatSlotValue,

@@ -2,6 +2,7 @@
 
 import { useMemo } from 'react';
 import { useCharacter } from '../state/characterStore';
+import { formatVerticalModifier } from '../types';
 import { cmDual } from '../utils/units';
 import { DistributionChart } from '../charts/DistributionChart';
 import {
@@ -92,8 +93,11 @@ export function ReachesStep() {
         <p className="text-charcoal-400 text-sm">
           All three reaches are computed automatically from your{' '}
           <strong className="text-charcoal-200">Height ({physical.heightCm} cm)</strong> and{' '}
-          <strong className="text-charcoal-200">Vertical Jump ({physical.verticalCm} cm)</strong>.
-          The charts show the population distribution across all possible 3d10 roll combinations.
+          <strong className="text-charcoal-200">
+            Vertical Jump ({physical.verticalCm} cm, mod {formatVerticalModifier(physical.verticalModifier)})
+          </strong>.
+          The charts show the population distribution across all possible 3d10 roll combinations,
+          with the v.3 Height -&gt; Vert Jump Modifier applied.
         </p>
       </div>
 

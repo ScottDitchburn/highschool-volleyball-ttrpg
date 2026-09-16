@@ -2,7 +2,7 @@
 // Build a Discord-friendly triple-backtick code block from a character.
 
 import type { Character, SkillStats, DerivedReaches } from '../types';
-import { SKILL_STAT_NAMES } from '../types';
+import { SKILL_STAT_NAMES, formatVerticalModifier } from '../types';
 import { ABILITY_MAP } from '../data/abilities';
 import { computeAPBudget } from '../engine/apEngine';
 import { cmDual } from '../utils/units';
@@ -50,6 +50,13 @@ export function buildDiscordExport(
   lines.push(`  ${year}   |   Height: ${heightStr}`);
   if (character.seeded && character.seed) {
     lines.push(`  Seeded run · seed: ${character.seed}`);
+  }
+  if (character.physical) {
+    // v.3 Height → Vert Jump Modifier is baked into verticalCm; show it for transparency.
+    const p = character.physical;
+    lines.push(
+      `  Vertical Jump: ${cmDual(p.verticalCm, 0)} (mod ${formatVerticalModifier(p.verticalModifier)})`,
+    );
   }
   lines.push('──────────────────────────────────────');
 

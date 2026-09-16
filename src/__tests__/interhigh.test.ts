@@ -2,12 +2,13 @@
 // Two-event (Summer / Spring Interhigh) level-up reducer behaviour.
 import { describe, it, expect } from 'vitest';
 import { characterReducer, INITIAL_CHARACTER } from '../state/characterStore';
-import type { Character, PhysicalAttributes } from '../types';
+import { makePhysicalAttributes, type Character, type PhysicalAttributes } from '../types';
 
 function withPhysical(overrides: Partial<Character> = {}): Character {
-  const physical: PhysicalAttributes = {
-    heightRoll: 15, verticalRoll: 15, heightCm: 180, verticalCm: 90,
-  };
+  // Physical Attributes Table: height roll 15 -> 178 cm (148 + 2*15).
+  // v.3 modifier for that roll is -2, so a raw vertical roll of 17 lands on an
+  // effective roll of 15 => 84 cm (39 + 3*15).
+  const physical: PhysicalAttributes = makePhysicalAttributes(15, 17); // 178 cm / 84 cm
   return { ...INITIAL_CHARACTER, schoolYear: 1, physical, ...overrides };
 }
 
@@ -20,7 +21,7 @@ describe('Summer Interhigh', () => {
     expect(next.apBudget.levelUpGains).toBe(7);        // 2*2 + 3*1
     expect(next.apBudget.total).toBe(start.apBudget.total + 7);
     expect(next.schoolYear).toBe(1);                   // no advance
-    expect(next.physical!.heightCm).toBe(180);         // no height growth
+    expect(next.physical!.heightCm).toBe(178);         // no height growth
     expect(next.graduated).toBeFalsy();
     expect(next.levelUpHistory).toHaveLength(1);
     expect(next.levelUpHistory[0]).toMatchObject({
@@ -44,7 +45,7 @@ describe('Spring Interhigh', () => {
     });
     expect(next.apBudget.levelUpGains).toBe(12);       // 2*3 + 3*2
     expect(next.schoolYear).toBe(2);
-    expect(next.physical!.heightCm).toBe(181.5);
+    expect(next.physical!.heightCm).toBe(179.5);
     expect(next.graduated).toBeFalsy();
     expect(next.levelUpHistory[0]).toMatchObject({ season: 'spring', year: 1, heightGainCm: 1.5 });
   });
@@ -68,7 +69,7 @@ describe('3rd-year Spring → graduation', () => {
     expect(next.apBudget.levelUpGains).toBe(17);       // 2*4 + 3*3
     expect(next.schoolYear).toBe(3);                   // no 4th year
     expect(next.graduated).toBe(true);
-    expect(next.physical!.heightCm).toBe(182);
+    expect(next.physical!.heightCm).toBe(180);
     expect(next.levelUpHistory[0]).toMatchObject({ season: 'spring', year: 3, graduated: true });
   });
 });
