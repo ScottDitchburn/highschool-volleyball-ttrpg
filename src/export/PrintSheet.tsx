@@ -5,7 +5,7 @@
 
 
 import type { Character, SkillStats, DerivedReaches } from '../types';
-import { SKILL_STAT_NAMES } from '../types';
+import { SKILL_STAT_NAMES, formatVerticalModifier } from '../types';
 import { ABILITY_MAP } from '../data/abilities';
 import { computeAPBudget } from '../engine/apEngine';
 import { cmDual } from '../utils/units';
@@ -86,6 +86,11 @@ export function PrintSheet({ character, effectiveStats, derived }: Props) {
                   <td style={{ color: '#555', paddingBottom: '3px' }}>Vertical Jump</td>
                   <td style={{ fontFamily: 'monospace', fontWeight: 700, textAlign: 'right' }}>
                     {physical ? cmDual(physical.verticalCm, 0) : '—'}
+                    {physical && (
+                      <span style={{ fontSize: '10px', marginLeft: '4px', color: '#888' }}>
+                        (mod {formatVerticalModifier(physical.verticalModifier)})
+                      </span>
+                    )}
                   </td>
                 </tr>
               </tbody>

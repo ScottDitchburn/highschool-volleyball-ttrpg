@@ -1,7 +1,7 @@
 // PhysicalStep -- two 3d10 rolls -> pool -> assign to Height / Vertical Jump
 // Displays Physical distribution charts for each assigned attribute.
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useCharacter } from '../state/characterStore';
 import { DiceRoller } from '../components/DiceRoller';
 import { RollPool, type SlotDef } from '../components/RollPool';
@@ -9,8 +9,17 @@ import { DistributionChart } from '../charts/DistributionChart';
 import {
   heightCmPmf,
   verticalCmPmf,
+  verticalCmPmfGivenHeightRoll,
 } from '../charts/distributions';
-import { rollToHeightCm, rollToVerticalCm, type PhysicalRoll } from '../types';
+import {
+  effectiveVerticalRoll,
+  formatVerticalModifier,
+  heightRollToVerticalModifier,
+  rollToHeightCm,
+  rollToVerticalCm,
+  verticalCmFromRolls,
+  type PhysicalRoll,
+} from '../types';
 import { cmDual } from '../utils/units';
 
 // Crypto-random 3d10
@@ -31,7 +40,8 @@ const verticalPmf = verticalCmPmf();
 
 const PHYSICAL_SLOTS: SlotDef[] = [
   { id: 'height',   label: 'Height',        sublabel: '(3d10 x 2 + 150 cm)' },
-  { id: 'vertical', label: 'Vertical Jump',  sublabel: '(3d10 x 3 + 45 cm)' },
+  // v.3: the vertical roll is shifted by the Height -> Vert Jump Modifier first.
+  { id: 'vertical', label: 'Vertical Jump',  sublabel: '((3d10 + height mod) x 3 + 45 cm)' },
 ];
 
 export function PhysicalStep() {
@@ -158,7 +168,24 @@ export function PhysicalStep() {
   const heightRoll      = heightChipIdx   !== undefined ? chipValues[heightChipIdx]   : null;
   const verticalRoll    = verticalChipIdx !== undefined ? chipValues[verticalChipIdx] : null;
   const heightCm        = heightRoll   !== null ? rollToHeightCm(heightRoll)   : null;
-  const verticalCm      = verticalRoll !== null ? rollToVerticalCm(verticalRoll) : null;
+  // v.3 Height - Vert Jump Modifier: looked up from the HEIGHT roll, applied to
+  // the vertical roll (clamped to 3-30) before the cm conversion.
+  const vertMod   = heightRoll !== null ? heightRollToVerticalModifier(heightRoll) : null;
+  const effVertRoll = heightRoll !== null && verticalRoll !== null
+    ? effectiveVerticalRoll(heightRoll, verticalRoll)
+    : null;
+  const verticalCm = heightRoll !== null && verticalRoll !== null
+    ? verticalCmFromRolls(heightRoll, verticalRoll)
+    : verticalRoll !== null ? rollToVerticalCm(verticalRoll) : null;
+  const vertClamped = effVertRoll !== null && verticalRoll !== null && vertMod !== null
+    && effVertRoll !== verticalRoll + vertMod;
+
+  // Once Height is assigned the modifier is fixed, so show the conditional
+  // vertical-jump distribution; before that, the unconditional one.
+  const verticalChartPmf = useMemo(
+    () => (heightRoll !== null ? verticalCmPmfGivenHeightRoll(heightRoll) : verticalPmf),
+    [heightRoll],
+  );
 
   return (
     <div className="flex flex-col gap-6">
@@ -204,8 +231,13 @@ export function PhysicalStep() {
           formatSlotValue={(v) => {
             if (heightChipIdx !== undefined && chipValues[heightChipIdx] === v)
               return v + ' -> ' + cmDual(rollToHeightCm(v), 0);
-            if (verticalChipIdx !== undefined && chipValues[verticalChipIdx] === v)
-              return v + ' -> ' + cmDual(rollToVerticalCm(v), 0);
+            if (verticalChipIdx !== undefined && chipValues[verticalChipIdx] === v) {
+              if (heightRoll === null) return v + ' -> ' + cmDual(rollToVerticalCm(v), 0);
+              const mod = heightRollToVerticalModifier(heightRoll);
+              const eff = effectiveVerticalRoll(heightRoll, v);
+              return v + ' ' + formatVerticalModifier(mod) + ' = ' + eff +
+                ' -> ' + cmDual(rollToVerticalCm(eff), 0);
+            }
             return String(v);
           }}
           onAssign={handleAssign}
@@ -226,7 +258,12 @@ export function PhysicalStep() {
               {heightCm !== null ? cmDual(heightCm, 0) : '--'}
             </div>
             {heightRoll !== null && (
-              <div className="text-xs text-charcoal-500">Roll: {heightRoll}</div>
+              <div className="text-xs text-charcoal-500">
+                Roll {heightRoll} -&gt; {heightCm} cm, vert modifier{' '}
+                <span className="font-semibold text-orange-300">
+                  {formatVerticalModifier(vertMod ?? 0)}
+                </span>
+              </div>
             )}
           </div>
           <div>
@@ -235,7 +272,17 @@ export function PhysicalStep() {
               {verticalCm !== null ? cmDual(verticalCm, 0) : '--'}
             </div>
             {verticalRoll !== null && (
-              <div className="text-xs text-charcoal-500">Roll: {verticalRoll}</div>
+              <div className="text-xs text-charcoal-500">
+                {vertMod === null ? (
+                  <>Roll {verticalRoll} -&gt; {verticalCm} cm</>
+                ) : (
+                  <>
+                    Roll {verticalRoll} {formatVerticalModifier(vertMod)} = {effVertRoll}
+                    {' -> '}{verticalCm} cm
+                    {vertClamped && <span className="text-charcoal-600"> (clamped to 3-30)</span>}
+                  </>
+                )}
+              </div>
             )}
           </div>
         </div>
@@ -251,9 +298,14 @@ export function PhysicalStep() {
           markerLabel={heightCm !== null ? heightCm + ' cm' : undefined}
         />
         <DistributionChart
-          pmf={verticalPmf}
+          pmf={verticalChartPmf}
           markerValue={verticalCm}
-          label="Vertical Jump Distribution (cm)"
+          label={
+            heightRoll !== null
+              ? 'Vertical Jump Distribution (cm) -- given Height roll ' + heightRoll +
+                ' (modifier ' + formatVerticalModifier(vertMod ?? 0) + ')'
+              : 'Vertical Jump Distribution (cm)'
+          }
           unit=" cm"
           markerLabel={verticalCm !== null ? verticalCm + ' cm' : undefined}
         />

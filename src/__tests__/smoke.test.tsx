@@ -90,13 +90,15 @@ const FULL_CHARACTER: Character = {
     heightRoll: 18,
     verticalRoll: 12,
     heightCm:   186,   // 150 + 2*18
-    verticalCm:  81,   // 45 + 3*12
+    // v.3 Height - Vert Jump Modifier: height roll 18 -> -5, so 12 - 5 = 7
+    verticalModifier: -5,
+    verticalCm:  66,   // 45 + 3*7  (was 81 pre-v.3)
   },
   reaches: {
     effectiveHeightCm: 186,
     standingReachCm: 241.8,  // 1.3 * 186
-    spikingReachCm:  322.8,  // 241.8 + 81
-    blockingReachCm: 310.65, // 241.8 + 0.85*81
+    spikingReachCm:  307.8,  // 241.8 + 66
+    blockingReachCm: 297.9,  // 241.8 + 0.85*66
     blockingCoef: 0.85,
   },
   skillPool: {

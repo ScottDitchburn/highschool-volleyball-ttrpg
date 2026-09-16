@@ -28,10 +28,19 @@ export interface PhysicalPool {
 
 export interface PhysicalAttributes {
   heightRoll: number;   // 3–30, assigned from pool
-  verticalRoll: number; // 3–30, assigned from pool
+  /** Raw 3d10 vertical roll (3–30) as assigned from the pool, BEFORE the modifier. */
+  verticalRoll: number;
   /** Height in cm = 150 + 2 × heightRoll */
   heightCm: number;
-  /** Vertical jump in cm = 45 + 3 × verticalRoll */
+  /**
+   * v.3 "Height – Vert Jump Modifier": looked up from the HEIGHT roll and added
+   * to the vertical roll (in roll units). Range +7 (height roll 3) … −17 (30).
+   */
+  verticalModifier: number;
+  /**
+   * Vertical jump in cm = 45 + 3 × clamp(verticalRoll + verticalModifier, 3, 30).
+   * NOTE: derived from the MODIFIED roll (v.3 rule), not the raw roll.
+   */
   verticalCm: number;
 }
 
@@ -238,9 +247,83 @@ export function rollToHeightCm(roll: number): number {
   return 150 + 2 * roll;
 }
 
-/** Vertical jump in cm from 3d10 roll total: 45 + 3 × roll */
+/**
+ * Vertical jump in cm from a 3d10 roll total: 45 + 3 × roll.
+ * This is the raw Physical Attributes Table conversion — callers that start from
+ * the assigned pool rolls should use `verticalCmFromRolls()` instead so the v.3
+ * Height → Vert Jump Modifier is applied.
+ */
 export function rollToVerticalCm(roll: number): number {
   return 45 + 3 * roll;
+}
+
+// ── v.3 Height → Vert Jump Modifier ───────────────────────────────────────────
+
+/** Lowest / highest 3d10 total — the domain of the Physical Attributes Table. */
+export const MIN_PHYSICAL_ROLL = 3;
+export const MAX_PHYSICAL_ROLL = 30;
+
+/** Clamp any roll-unit value into the 3–30 Physical Attributes Table range. */
+export function clampPhysicalRoll(roll: number): number {
+  if (roll < MIN_PHYSICAL_ROLL) return MIN_PHYSICAL_ROLL;
+  if (roll > MAX_PHYSICAL_ROLL) return MAX_PHYSICAL_ROLL;
+  return roll;
+}
+
+/**
+ * v.3 Physical Attributes Table — "Height – Vert Jump Modifier" column.
+ * The modifier is looked up from the HEIGHT roll and is expressed in roll units
+ * (it is added to the vertical jump roll, not to centimetres):
+ *
+ *   roll  3– 9 → +7 … +1   (modifier = 10 − roll)
+ *   roll 10–13 → ±0
+ *   roll 14–30 → −1 … −17  (modifier = 13 − roll)
+ *
+ * Short players jump higher; tall players jump lower.
+ * Out-of-range input is clamped to the table's 3–30 domain.
+ */
+export function heightRollToVerticalModifier(heightRoll: number): number {
+  const roll = clampPhysicalRoll(heightRoll);
+  if (roll <= 9) return 10 - roll;   // 3 → +7 … 9 → +1
+  if (roll <= 13) return 0;          // 10–13 → ±0
+  return 13 - roll;                  // 14 → −1 … 30 → −17
+}
+
+/**
+ * The vertical jump roll actually used for the cm conversion:
+ * raw vertical roll + the height-derived modifier, clamped back to 3–30 so it
+ * never falls off the Physical Attributes Table.
+ */
+export function effectiveVerticalRoll(heightRoll: number, verticalRoll: number): number {
+  return clampPhysicalRoll(verticalRoll + heightRollToVerticalModifier(heightRoll));
+}
+
+/**
+ * Single source of truth for base vertical jump in cm from the two assigned
+ * pool rolls (v.3 rule). Ability effects that add cm stack on top of this.
+ */
+export function verticalCmFromRolls(heightRoll: number, verticalRoll: number): number {
+  return rollToVerticalCm(effectiveVerticalRoll(heightRoll, verticalRoll));
+}
+
+/** Build a complete `PhysicalAttributes` from the two assigned pool rolls (v.3). */
+export function makePhysicalAttributes(
+  heightRoll: number,
+  verticalRoll: number
+): PhysicalAttributes {
+  return {
+    heightRoll,
+    verticalRoll,
+    heightCm: rollToHeightCm(heightRoll),
+    verticalModifier: heightRollToVerticalModifier(heightRoll),
+    verticalCm: verticalCmFromRolls(heightRoll, verticalRoll),
+  };
+}
+
+/** "+7" / "±0" / "−9" — compact display form for the modifier. */
+export function formatVerticalModifier(mod: number): string {
+  if (mod === 0) return '0';
+  return mod > 0 ? `+${mod}` : String(mod);
 }
 
 /** Standing reach in cm: 1.3 × Height */

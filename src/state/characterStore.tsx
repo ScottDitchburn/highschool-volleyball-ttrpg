@@ -25,8 +25,7 @@ import {
   type InterhighSeason,
   type LevelUpRecord,
   computeReaches,
-  rollToHeightCm,
-  rollToVerticalCm,
+  makePhysicalAttributes,
   experienceFromRoll,
   interhighAp,
   SKILL_STAT_NAMES,
@@ -162,10 +161,10 @@ function baseCharacterReducer(state: Character, action: CharacterAction): Charac
       return { ...state, physicalPool: { ...state.physicalPool, rollB: action.roll } };
 
     case 'ASSIGN_PHYSICAL': {
-      const heightCm   = rollToHeightCm(action.heightRoll);
-      const verticalCm = rollToVerticalCm(action.verticalRoll);
-      const physical   = { heightRoll: action.heightRoll, verticalRoll: action.verticalRoll, heightCm, verticalCm };
-      const reaches    = computeReaches(heightCm, verticalCm);
+      // v.3: verticalCm comes from the MODIFIED vertical roll (raw roll + the
+      // Height → Vert Jump Modifier, clamped to 3–30). See makePhysicalAttributes.
+      const physical = makePhysicalAttributes(action.heightRoll, action.verticalRoll);
+      const reaches  = computeReaches(physical.heightCm, physical.verticalCm);
       return { ...state, physical, reaches };
     }
 

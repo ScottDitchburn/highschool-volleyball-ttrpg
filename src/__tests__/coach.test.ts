@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, it, expect, beforeEach } from 'vitest';
-import type { Character } from '../types';
+import { makePhysicalAttributes, type Character } from '../types';
 import { coachReducer, benchPlayers, duplicateNumbers } from '../coach/coachStore';
 import type { CoachAction } from '../coach/coachStore';
 import { emptyCoachState, type CoachState, MAX_ROSTER } from '../coach/types';
@@ -21,7 +21,9 @@ function makeCharacter(name: string): Character {
     name,
     schoolYear: 1,
     physicalPool: { rollA: null, rollB: null },
-    physical: { heightRoll: 15, verticalRoll: 10, heightCm: 180, verticalCm: 75 },
+    // v.3 Height -> Vert Jump Modifier: height roll 15 gives -2, so a raw vertical
+    // roll of 12 lands on an effective roll of 10 => 75 cm (unchanged from before).
+    physical: makePhysicalAttributes(15, 12), // 180 cm / 75 cm, mod -2
     reaches: null,
     skillPool: { rolls: Array(10).fill(null) },
     skills: {

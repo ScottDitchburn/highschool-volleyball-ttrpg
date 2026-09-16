@@ -3,7 +3,7 @@
 
 import React, { useState, useCallback } from 'react';
 import { useCharacter } from '../state/characterStore';
-import { SKILL_STAT_NAMES, type InterhighSeason } from '../types';
+import { SKILL_STAT_NAMES, formatVerticalModifier, type InterhighSeason } from '../types';
 import { ABILITY_MAP } from '../data/abilities';
 import { computeAPBudget } from '../engine/apEngine';
 import { LevelUpModal } from '../components/LevelUpModal';
@@ -233,7 +233,11 @@ export function ReviewStep() {
             <div>
               <SectionHead>Physical Attributes</SectionHead>
               <StatRow label="Height" value={physical ? cmDual(physical.heightCm) : '—'} />
-              <StatRow label="Vertical Jump" value={physical ? cmDual(physical.verticalCm, 0) : '—'} />
+              <StatRow
+                label="Vertical Jump"
+                value={physical ? cmDual(physical.verticalCm, 0) : '—'}
+                sub={physical ? `(mod ${formatVerticalModifier(physical.verticalModifier)})` : undefined}
+              />
             </div>
 
             {derivedReaches && (

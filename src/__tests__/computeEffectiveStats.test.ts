@@ -1,5 +1,6 @@
 // src/__tests__/computeEffectiveStats.test.ts
 import { describe, it, expect } from 'vitest';
+import { heightRollToVerticalModifier } from '../types';
 import type { Character, APBudget, SkillStats, SelectedAbility, PhysicalAttributes } from '../types';
 import { computeEffectiveStats, computeDerived } from '../state/characterStore';
 
@@ -20,11 +21,17 @@ function allStats(val: number): SkillStats {
 }
 
 function makePhysical(heightCm: number, verticalCm: number): PhysicalAttributes {
-  // Reverse-engineer rolls (not used for computation but needed by the type)
+  // Reverse-engineer rolls (not used for computation but needed by the type).
+  // v.3: the stored verticalRoll is the RAW roll, so undo the height-derived
+  // modifier to keep the fixture self-consistent with `verticalCm`.
+  const heightRoll = Math.round((heightCm - 150) / 2);
+  const verticalModifier = heightRollToVerticalModifier(heightRoll);
+  const effectiveVerticalRoll = Math.round((verticalCm - 45) / 3);
   return {
-    heightRoll: Math.round((heightCm - 150) / 2),
-    verticalRoll: Math.round((verticalCm - 45) / 3),
+    heightRoll,
+    verticalRoll: effectiveVerticalRoll - verticalModifier,
     heightCm,
+    verticalModifier,
     verticalCm,
   };
 }

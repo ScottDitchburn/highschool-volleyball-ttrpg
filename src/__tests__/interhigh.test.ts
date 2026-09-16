@@ -2,12 +2,12 @@
 // Two-event (Summer / Spring Interhigh) level-up reducer behaviour.
 import { describe, it, expect } from 'vitest';
 import { characterReducer, INITIAL_CHARACTER } from '../state/characterStore';
-import type { Character, PhysicalAttributes } from '../types';
+import { makePhysicalAttributes, type Character, type PhysicalAttributes } from '../types';
 
 function withPhysical(overrides: Partial<Character> = {}): Character {
-  const physical: PhysicalAttributes = {
-    heightRoll: 15, verticalRoll: 15, heightCm: 180, verticalCm: 90,
-  };
+  // v.3 Height -> Vert Jump Modifier: height roll 15 gives -2, so a raw vertical
+  // roll of 17 lands on an effective roll of 15 => 90 cm (unchanged from before).
+  const physical: PhysicalAttributes = makePhysicalAttributes(15, 17); // 180 cm / 90 cm
   return { ...INITIAL_CHARACTER, schoolYear: 1, physical, ...overrides };
 }
 

@@ -2,15 +2,15 @@
 // character sheet, not just the reaches.
 import { describe, it, expect } from 'vitest';
 import { computeDerived, INITIAL_CHARACTER } from '../state/characterStore';
-import { rollToHeightCm, rollToVerticalCm, type Character } from '../types';
+import { makePhysicalAttributes, type Character } from '../types';
 
 function charWith(abilityIds: string[]): Character {
-  const heightRoll = 18, verticalRoll = 12;
-  const heightCm = rollToHeightCm(heightRoll);     // 186
-  const verticalCm = rollToVerticalCm(verticalRoll); // 81
+  // v.3: height roll 18 carries a -5 vert modifier, so raw vertical roll 12
+  // becomes an effective roll of 7 => 66 cm (was 81 cm pre-v.3).
+  const physical = makePhysicalAttributes(18, 12); // 186 cm / 66 cm, mod -5
   return {
     ...INITIAL_CHARACTER,
-    physical: { heightRoll, verticalRoll, heightCm, verticalCm },
+    physical,
     selectedAbilities: abilityIds.map((id, i) => ({ uid: 'u' + i, abilityId: id, tier: 0, chooserSelections: {} })),
   };
 }

@@ -2,14 +2,13 @@
 import { describe, it, expect } from 'vitest';
 import { buildDiscordExport } from '../export/discord';
 import { computeDerived, INITIAL_CHARACTER } from '../state/characterStore';
-import { rollToHeightCm, rollToVerticalCm, type Character } from '../types';
+import { makePhysicalAttributes, type Character } from '../types';
 
 function charWithGrowthSpurt(): Character {
-  const heightCm = rollToHeightCm(18);   // 186
-  const verticalCm = rollToVerticalCm(12); // 81
+  // v.3: height roll 18 carries a -5 vert modifier => vertical 66 cm (was 81 cm).
   return {
     ...INITIAL_CHARACTER,
-    physical: { heightRoll: 18, verticalRoll: 12, heightCm, verticalCm },
+    physical: makePhysicalAttributes(18, 12), // 186 cm / 66 cm, mod -5
     selectedAbilities: [{ uid: 'u1', abilityId: 'growth-spurt', tier: 0, chooserSelections: {} }],
   };
 }

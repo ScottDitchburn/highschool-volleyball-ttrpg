@@ -36,6 +36,30 @@ Vertical Jump. Convert via the Physical Attributes Table:
 - Height(cm) = `150 + 2 × roll`  (roll 3 → 154 … roll 30 → 208)
 - Vertical(cm) = `45 + 3 × roll` (roll 3 → 48 … roll 30 → 129)
 
+**Height → Vert Jump Modifier** (v.3, Physical Attributes Table) — the height roll carries a
+modifier that is applied to the **vertical jump roll**, in *roll units*, before the cm conversion.
+Short players jump higher; tall players jump lower.
+
+| Height roll | Modifier | Formula |
+|---|---|---|
+| 3–9   | +7 … +1 | `10 − roll` |
+| 10–13 | ±0      | — |
+| 14–30 | −1 … −17 | `13 − roll` |
+
+- Effective vertical roll = `clamp(verticalRoll + mod(heightRoll), 3, 30)`
+- Vertical(cm) = `45 + 3 × effective vertical roll`
+- Height(cm) is **not** affected. Example: height roll 22 → 194 cm, modifier −9; vertical roll 18
+  → `18 − 9 = 9` → 72 cm. Clamp example: height roll 30 (−17) with vertical roll 5 → roll 3.
+- Interhigh height growth is applied in cm and does not change the height *roll*, so the modifier
+  a character was created with does not drift year to year.
+- All four distribution charts push the exact 3d10 × 3d10 joint pmf through modifier + clamp, so the
+  vertical-jump and reach curves are the true post-modifier populations (no approximation). Once a
+  height is assigned the vertical-jump chart switches to the distribution *conditional* on that
+  height roll; the three reach charts stay unconditional.
+- Single source of truth: `heightRollToVerticalModifier` / `effectiveVerticalRoll` /
+  `verticalCmFromRolls` / `makePhysicalAttributes` in `src/types.ts`. Ability effects that add
+  centimetres to the vertical jump stack on top of `physical.verticalCm`.
+
 **Derived reaches** (cm):
 - Standing Reach = `1.3 × Height`
 - Spiking Reach  = `1.3 × Height + Vertical`

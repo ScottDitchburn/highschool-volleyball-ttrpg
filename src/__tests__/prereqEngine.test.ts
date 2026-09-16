@@ -446,7 +446,9 @@ describe('findIneligibleAbilities', () => {
     // double-jump absent it must be reported, citing Double Jump.
     const char = makeChar({
       skills: allStats(3),
-      physical: { heightRoll: 30, verticalRoll: 20, heightCm: 210, verticalCm: 105 },
+      // synthetic: only standingReach (height-derived) matters here.
+      // v.3 modifier for height roll 30 is -17 (raw 20 -> effective 3).
+      physical: { heightRoll: 30, verticalRoll: 20, heightCm: 210, verticalModifier: -17, verticalCm: 48 },
       selectedAbilities: [makeSel('standing-block', 0, 'sb')],
     });
     const removed = findIneligibleAbilities(char);
@@ -540,7 +542,8 @@ describe('findIneligibleAbilities', () => {
     // double-jump fails its derived prereq AND standing-block fails too — both go.
     const char = makeChar({
       skills: allStats(3),
-      physical: { heightRoll: 0, verticalRoll: 0, heightCm: 150, verticalCm: 45 }, // reach 195
+      // synthetic sub-table rolls; clamped to the 3-30 table domain by the v.3 helper.
+      physical: { heightRoll: 0, verticalRoll: 0, heightCm: 150, verticalModifier: 7, verticalCm: 48 }, // reach 195
       selectedAbilities: [
         makeSel('double-jump', 3, 'dj'),
         makeSel('standing-block', 0, 'sb'),

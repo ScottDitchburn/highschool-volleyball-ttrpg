@@ -2,14 +2,21 @@
 // Persistence — localStorage autosave + JSON export/import
 // ─────────────────────────────────────────────────────────────────────────────
 
-import type { Character, SelectedAbility, LevelUpRecord } from '../types';
+import type { Character, SelectedAbility, LevelUpRecord, PhysicalAttributes } from '../types';
+import { computeReaches, makePhysicalAttributes } from '../types';
 import { generateUid } from './characterStore';
 import { INITIAL_CHARACTER } from './characterStore';
 
 export const STORAGE_KEY = 'haikyu-gauntlet-character-v1';
 
-// Current schema version — bump if breaking changes are made to Character shape
-const SCHEMA_VERSION = 1;
+// Current schema version — bump if breaking changes are made to Character shape.
+//   v1 → v2: v.3 "Height – Vert Jump Modifier". `physical.verticalCm` is now
+//            derived from the modified vertical roll and `physical.verticalModifier`
+//            was added. v1 saves are migrated (not discarded) on load/import.
+export const SCHEMA_VERSION = 2;
+
+/** Schema versions this build can read (older ones are upgraded by migration). */
+const SUPPORTED_VERSIONS = [1, 2];
 
 interface PersistedEnvelope {
   version: number;
@@ -45,6 +52,43 @@ function migrateLevelUpHistory(history: unknown): LevelUpRecord[] {
     const r = entry as Record<string, unknown> | null;
     return r != null && (r.season === 'summer' || r.season === 'spring');
   });
+}
+
+/**
+ * v.3 "Height – Vert Jump Modifier" migration.
+ *
+ * Pre-v.3 saves stored `verticalCm = 45 + 3 × rawVerticalRoll` and had no
+ * `verticalModifier`. Recompute both from the stored rolls so old localStorage
+ * characters are corrected in place, and refresh the cached reaches.
+ *
+ * Idempotent: a v2 physical block recomputes to exactly the same numbers.
+ * Height growth from Interhigh level-ups is in cm (the roll is unchanged), so
+ * the stored `heightCm` is preserved rather than recomputed from the roll.
+ */
+export function migratePhysical(character: Character): Character {
+  const physical = character.physical as PhysicalAttributes | null;
+  if (!physical || typeof physical.heightRoll !== 'number' || typeof physical.verticalRoll !== 'number') {
+    return character;
+  }
+  const fresh = makePhysicalAttributes(physical.heightRoll, physical.verticalRoll);
+  const migrated: PhysicalAttributes = {
+    ...physical,
+    // keep any accrued height growth (cm) that is not represented in the roll
+    heightCm: typeof physical.heightCm === 'number' ? physical.heightCm : fresh.heightCm,
+    verticalModifier: fresh.verticalModifier,
+    verticalCm: fresh.verticalCm,
+  };
+  if (migrated.verticalCm === physical.verticalCm &&
+      migrated.verticalModifier === physical.verticalModifier) {
+    return character;
+  }
+  character.physical = migrated;
+  character.reaches = computeReaches(
+    migrated.heightCm,
+    migrated.verticalCm,
+    character.reaches?.blockingCoef ?? 0.85,
+  );
+  return character;
 }
 
 // ── Debounce helper ───────────────────────────────────────────────────────────
@@ -83,7 +127,7 @@ export function loadSaved(): Character | null {
 
     const parsed: unknown = JSON.parse(raw);
     if (!isEnvelope(parsed)) return null;
-    if (parsed.version !== SCHEMA_VERSION) return null; // schema changed — discard
+    if (!SUPPORTED_VERSIONS.includes(parsed.version)) return null; // unknown schema — discard
     if (!isCharacter(parsed.character)) return null;
 
     const character = parsed.character;
@@ -93,7 +137,8 @@ export function loadSaved(): Character | null {
     }
     // Migrate: drop pre-two-event level-up records (banked AP is preserved separately)
     character.levelUpHistory = migrateLevelUpHistory(character.levelUpHistory);
-    return character;
+    // Migrate: v.3 Height → Vert Jump Modifier (recompute verticalCm from the rolls)
+    return migratePhysical(character);
   } catch {
     return null;
   }
@@ -169,7 +214,7 @@ export async function importCharacterFromFile(
       return { ok: false, error: 'File does not look like a Haikyū character export (missing version or character fields).' };
     }
 
-    if (parsed.version !== SCHEMA_VERSION) {
+    if (!SUPPORTED_VERSIONS.includes(parsed.version)) {
       return {
         ok: false,
         error: `Schema version mismatch: file is v${parsed.version}, app expects v${SCHEMA_VERSION}. Export the character again to upgrade.`,
@@ -187,7 +232,8 @@ export async function importCharacterFromFile(
     }
     // Migrate: drop pre-two-event level-up records (banked AP is preserved separately)
     character.levelUpHistory = migrateLevelUpHistory(character.levelUpHistory);
-    return { ok: true, character };
+    // Migrate: v.3 Height → Vert Jump Modifier (recompute verticalCm from the rolls)
+    return { ok: true, character: migratePhysical(character) };
   } catch (err) {
     return { ok: false, error: `Unexpected error: ${String(err)}` };
   }
