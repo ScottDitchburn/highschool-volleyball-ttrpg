@@ -97,6 +97,13 @@ export interface CloudCharacterSummary {
   schoolYear: number | null;
   graduated: boolean;
   ownerUsername: string | null;
+  /** auth.users id of the owner, when the row/view exposes it. */
+  ownerId: string | null;
+  /** Base height / vertical jump from the payload's physical block, if assigned. */
+  heightCm: number | null;
+  verticalCm: number | null;
+  /** Number of purchased ability instances in the payload. */
+  abilityCount: number;
 }
 
 /** The signed-in user's display info, from `public.profiles`. */

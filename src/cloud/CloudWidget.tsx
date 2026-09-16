@@ -17,6 +17,7 @@ import { useCloudSave } from './useCloudSave';
 import { listMine, listPublic, load, remove, setPublic } from './characters';
 import { shortDate, yearBadge } from './format';
 import type { CloudCharacterSummary, CloudClient } from './types';
+import { CHARACTERS_PATH, navigateTo } from '../navigation';
 
 type PanelView = 'menu' | 'mine' | 'public';
 
@@ -261,6 +262,11 @@ function PublicCharactersPanel({
 
 // ── The banner control ───────────────────────────────────────────────────────
 
+/** After a cloud character is loaded, make sure the builder shows the wizard. */
+function announceLoaded(): void {
+  window.dispatchEvent(new CustomEvent('haikyu:open-wizard'));
+}
+
 export function CloudWidget() {
   const auth = useCloudAuth();
   const { canSave, isUpdate, state: saveState, saveNow } = useCloudSave();
@@ -336,9 +342,7 @@ export function CloudWidget() {
           </button>
           <button
             type="button"
-            onClick={() => setView((v) => (v === 'public' ? null : 'public'))}
-            aria-expanded={view === 'public'}
-            aria-haspopup="dialog"
+            onClick={() => navigateTo(CHARACTERS_PATH)}
             className="btn-ghost text-sm py-1.5 px-3 hidden sm:flex items-center"
             title="Browse characters other players have shared"
           >
@@ -425,6 +429,17 @@ export function CloudWidget() {
                 type="button"
                 onClick={() => {
                   setView(null);
+                  navigateTo(CHARACTERS_PATH);
+                }}
+                className="btn-ghost text-sm py-1.5 px-3 text-left"
+                title="Searchable table of your characters and every public one"
+              >
+                Browse all characters
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setView(null);
                   void auth.signOut();
                 }}
                 className="btn-ghost text-sm py-1.5 px-3 text-left text-red-400 hover:text-red-300"
@@ -438,7 +453,10 @@ export function CloudWidget() {
             <MyCharactersPanel
               client={auth.client}
               userId={auth.userId}
-              onLoaded={() => setView(null)}
+              onLoaded={() => {
+                setView(null);
+                announceLoaded();
+              }}
             />
           )}
 
@@ -446,7 +464,10 @@ export function CloudWidget() {
             <PublicCharactersPanel
               client={auth.client}
               viewerId={auth.userId}
-              onLoaded={() => setView(null)}
+              onLoaded={() => {
+                setView(null);
+                announceLoaded();
+              }}
             />
           )}
         </div>

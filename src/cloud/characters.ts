@@ -62,9 +62,17 @@ function payloadOf(row: CloudCharacterRow): Record<string, unknown> | null {
   return data as Record<string, unknown>;
 }
 
+function numberAt(obj: unknown, key: string): number | null {
+  if (typeof obj !== 'object' || obj === null) return null;
+  const value = (obj as Record<string, unknown>)[key];
+  return typeof value === 'number' && Number.isFinite(value) ? value : null;
+}
+
 export function toSummary(row: CloudCharacterRow): CloudCharacterSummary {
   const payload = payloadOf(row);
   const year = payload && typeof payload.schoolYear === 'number' ? payload.schoolYear : null;
+  const physical = payload?.physical ?? null;
+  const abilities = payload?.selectedAbilities;
   return {
     id: row.id,
     name: row.name || 'Unnamed Player',
@@ -73,6 +81,10 @@ export function toSummary(row: CloudCharacterRow): CloudCharacterSummary {
     schoolYear: year,
     graduated: payload?.graduated === true,
     ownerUsername: row.owner_username ?? null,
+    ownerId: row.owner_id ?? null,
+    heightCm: numberAt(physical, 'heightCm'),
+    verticalCm: numberAt(physical, 'verticalCm'),
+    abilityCount: Array.isArray(abilities) ? abilities.length : 0,
   };
 }
 
