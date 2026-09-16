@@ -24,9 +24,10 @@ function makePhysical(heightCm: number, verticalCm: number): PhysicalAttributes 
   // Reverse-engineer rolls (not used for computation but needed by the type).
   // v.3: the stored verticalRoll is the RAW roll, so undo the height-derived
   // modifier to keep the fixture self-consistent with `verticalCm`.
-  const heightRoll = Math.round((heightCm - 150) / 2);
+  // Physical Attributes Table: height = 148 + 2 x roll, vertical = 39 + 3 x roll.
+  const heightRoll = Math.round((heightCm - 148) / 2);
   const verticalModifier = heightRollToVerticalModifier(heightRoll);
-  const effectiveVerticalRoll = Math.round((verticalCm - 45) / 3);
+  const effectiveVerticalRoll = Math.round((verticalCm - 39) / 3);
   return {
     heightRoll,
     verticalRoll: effectiveVerticalRoll - verticalModifier,

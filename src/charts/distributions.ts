@@ -86,7 +86,7 @@ export function get4d4AvgPmf(): PmfPoint[] {
 // Physical attribute PMFs (map roll → cm)
 // ─────────────────────────────────────────────────────────────────────────────
 
-/** Height cm PMF: Height = 150 + 2 × roll. Population is 3d10 rolls. */
+/** Height cm PMF: Height = 148 + 2 × roll. Population is 3d10 rolls. */
 export function heightCmPmf(): PmfPoint[] {
   return get3d10Pmf().map(({ value, prob }) => ({
     value: rollToHeightCm(value),

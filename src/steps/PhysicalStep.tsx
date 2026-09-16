@@ -39,9 +39,9 @@ const heightPmf   = heightCmPmf();
 const verticalPmf = verticalCmPmf();
 
 const PHYSICAL_SLOTS: SlotDef[] = [
-  { id: 'height',   label: 'Height',        sublabel: '(3d10 x 2 + 150 cm)' },
+  { id: 'height',   label: 'Height',        sublabel: '(3d10 x 2 + 148 cm)' },
   // v.3: the vertical roll is shifted by the Height -> Vert Jump Modifier first.
-  { id: 'vertical', label: 'Vertical Jump',  sublabel: '((3d10 + height mod) x 3 + 45 cm)' },
+  { id: 'vertical', label: 'Vertical Jump',  sublabel: '((3d10 + height mod) x 3 + 39 cm)' },
 ];
 
 export function PhysicalStep() {

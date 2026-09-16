@@ -123,13 +123,14 @@ describe('reach PMFs', () => {
     expect(pmfSumsToOne(pmf)).toBe(true);
   });
 
-  it('standingReachPmf range: height range 3d10 (3-30) => height 156-210 => standing 202.8-273', () => {
+  it('standingReachPmf range: height range 3d10 (3-30) => height 154-208 => standing 200.2-270.4', () => {
     const pmf = standingReachPmf();
     const values = pmf.map((p) => p.value);
-    // min: 1.3 * (150 + 2*3) = 1.3 * 156 = 202.8
-    // max: 1.3 * (150 + 2*30) = 1.3 * 210 = 273
-    expect(Math.min(...values)).toBeCloseTo(202.8, 5);
-    expect(Math.max(...values)).toBeCloseTo(273.0, 5);
+    // Physical Attributes Table: Height = 148 + 2 x roll (roll 3 -> 154, roll 30 -> 208).
+    // min: 1.3 * 154 = 200.2
+    // max: 1.3 * 208 = 270.4
+    expect(Math.min(...values)).toBeCloseTo(200.2, 5);
+    expect(Math.max(...values)).toBeCloseTo(270.4, 5);
   });
 });
 

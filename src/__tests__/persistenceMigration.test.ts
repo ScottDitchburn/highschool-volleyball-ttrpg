@@ -50,16 +50,23 @@ describe('level-up history migration on load', () => {
   });
 });
 
-// ── v.3 "Height – Vert Jump Modifier" migration (schema v1 → v2) ──────────────
+// ── Physical-attribute migration (schema v1/v2 → v3) ─────────────────────────
+//
+// v1: verticalCm came from the RAW vertical roll and there was no modifier.
+// v1/v2: both roll→cm conversions were off from the printed Physical Attributes
+//        Table (height 150 + 2×roll instead of 148 + 2×roll, vertical 45 + 3×roll
+//        instead of 39 + 3×roll).
+// Table values for height roll 18 / raw vertical roll 12: 184 cm, modifier −5,
+// effective vertical roll 7 → 60 cm.
 
-describe('v.3 vertical-jump modifier migration on load', () => {
+describe('physical-attribute migration on load', () => {
   beforeEach(() => clearSaved());
 
-  it('recomputes verticalCm and injects verticalModifier for a pre-v.3 save', () => {
+  it('corrects a v1 save: modifier injected, both columns recomputed', () => {
     const oldChar = {
       ...INITIAL_CHARACTER,
       physicalPool: { rollA: { dice: [6, 6, 6], total: 18 }, rollB: { dice: [4, 4, 4], total: 12 } },
-      // pre-v.3: verticalCm was 45 + 3 × the RAW roll, and no modifier was stored
+      // v1: heightCm = 150 + 2×18, verticalCm = 45 + 3×12 (raw roll), no modifier
       physical: { heightRoll: 18, verticalRoll: 12, heightCm: 186, verticalCm: 81 },
       reaches: {
         effectiveHeightCm: 186, standingReachCm: 241.8,
@@ -70,28 +77,42 @@ describe('v.3 vertical-jump modifier migration on load', () => {
 
     const loaded = loadSaved();
     expect(loaded).not.toBeNull();
-    // v.3: height roll 18 → modifier −5, so the effective vertical roll is 7.
     expect(loaded!.physical!.verticalModifier).toBe(-5);
-    expect(loaded!.physical!.verticalCm).toBe(66);   // 45 + 3×7 (was 81)
-    expect(loaded!.physical!.verticalRoll).toBe(12); // raw roll preserved
-    expect(loaded!.physical!.heightCm).toBe(186);    // height untouched
-    // cached reaches refreshed off the corrected vertical
-    expect(loaded!.reaches!.spikingReachCm).toBeCloseTo(241.8 + 66, 10);
-    expect(loaded!.reaches!.blockingReachCm).toBeCloseTo(241.8 + 0.85 * 66, 10);
-    expect(loaded!.reaches!.standingReachCm).toBeCloseTo(241.8, 10);
+    expect(loaded!.physical!.heightCm).toBe(184);   // table: 148 + 2×18 (was 186)
+    expect(loaded!.physical!.verticalCm).toBe(60);  // table: 39 + 3×7   (was 81)
+    expect(loaded!.physical!.heightRoll).toBe(18);  // rolls preserved
+    expect(loaded!.physical!.verticalRoll).toBe(12);
+    // cached reaches refreshed off the corrected values
+    expect(loaded!.reaches!.standingReachCm).toBeCloseTo(1.3 * 184, 10);
+    expect(loaded!.reaches!.spikingReachCm).toBeCloseTo(1.3 * 184 + 60, 10);
+    expect(loaded!.reaches!.blockingReachCm).toBeCloseTo(1.3 * 184 + 0.85 * 60, 10);
   });
 
-  it('preserves accrued Interhigh height growth (cm) while correcting the vertical', () => {
+  it('corrects a v2 save (modifier already applied, cm conversions still wrong)', () => {
+    const v2Char = {
+      ...INITIAL_CHARACTER,
+      // v2: modifier was applied, but with the old conversions (150+2r / 45+3r)
+      physical: { heightRoll: 18, verticalRoll: 12, heightCm: 186, verticalModifier: -5, verticalCm: 66 },
+    };
+    seed(v2Char, 2);
+
+    const loaded = loadSaved();
+    expect(loaded!.physical!.heightCm).toBe(184);
+    expect(loaded!.physical!.verticalCm).toBe(60);
+    expect(loaded!.physical!.verticalModifier).toBe(-5);
+  });
+
+  it('preserves accrued Interhigh height growth (cm) across the correction', () => {
     const oldChar = {
       ...INITIAL_CHARACTER,
-      // heightCm carries +1.2 cm of level-up growth that the roll does not encode
+      // 186 base + 1.2 cm of level-up growth that the roll does not encode
       physical: { heightRoll: 18, verticalRoll: 12, heightCm: 187.2, verticalCm: 81 },
     };
     seed(oldChar, 1);
 
     const loaded = loadSaved();
-    expect(loaded!.physical!.heightCm).toBe(187.2);
-    expect(loaded!.physical!.verticalCm).toBe(66);
+    expect(loaded!.physical!.heightCm).toBe(185.2); // corrected base 184 + 1.2 growth
+    expect(loaded!.physical!.verticalCm).toBe(60);
   });
 
   it('keeps a Swing Block character on its 0.9 blocking coefficient', () => {
@@ -107,18 +128,28 @@ describe('v.3 vertical-jump modifier migration on load', () => {
 
     const loaded = loadSaved();
     expect(loaded!.reaches!.blockingCoef).toBe(0.9);
-    expect(loaded!.reaches!.blockingReachCm).toBeCloseTo(241.8 + 0.9 * 66, 10);
+    expect(loaded!.reaches!.blockingReachCm).toBeCloseTo(1.3 * 184 + 0.9 * 60, 10);
   });
 
-  it('is a no-op for an already-migrated v2 save', () => {
+  it('is a no-op for an already-migrated current-schema save', () => {
     const newChar = {
       ...INITIAL_CHARACTER,
-      physical: makePhysicalAttributes(18, 12), // 186 cm / 66 cm, mod −5
+      physical: makePhysicalAttributes(18, 12), // 184 cm / 60 cm, mod −5
     };
     seed(newChar, SCHEMA_VERSION);
 
     const loaded = loadSaved();
     expect(loaded!.physical).toEqual(makePhysicalAttributes(18, 12));
+  });
+
+  it('keeps growth intact on a current-schema save (no double correction)', () => {
+    const newChar = {
+      ...INITIAL_CHARACTER,
+      physical: { ...makePhysicalAttributes(18, 12), heightCm: 185.2 },
+    };
+    seed(newChar, SCHEMA_VERSION);
+
+    expect(loadSaved()!.physical!.heightCm).toBe(185.2);
   });
 
   it('leaves a save with no assigned physical attributes alone', () => {

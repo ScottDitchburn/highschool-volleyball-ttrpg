@@ -12,11 +12,24 @@ export const STORAGE_KEY = 'haikyu-gauntlet-character-v1';
 // Current schema version — bump if breaking changes are made to Character shape.
 //   v1 → v2: v.3 "Height – Vert Jump Modifier". `physical.verticalCm` is now
 //            derived from the modified vertical roll and `physical.verticalModifier`
-//            was added. v1 saves are migrated (not discarded) on load/import.
-export const SCHEMA_VERSION = 2;
+//            was added.
+//   v2 → v3: the roll→cm conversions were corrected to match the printed
+//            Physical Attributes Table (height 148 + 2×roll, vertical 39 + 3×roll;
+//            they were 150 + 2×roll / 45 + 3×roll, i.e. +2 cm / +6 cm too high).
+// Older saves are migrated, not discarded, on load/import.
+export const SCHEMA_VERSION = 3;
 
 /** Schema versions this build can read (older ones are upgraded by migration). */
-const SUPPORTED_VERSIONS = [1, 2];
+const SUPPORTED_VERSIONS = [1, 2, 3];
+
+/**
+ * The buggy height conversion used by schema v1 and v2 saves. Needed to work out
+ * how much of a stored `heightCm` was accrued Interhigh growth (which is banked
+ * in cm and is not encoded in the roll) versus the base table lookup.
+ */
+function legacyHeightCm(roll: number): number {
+  return 150 + 2 * roll;
+}
 
 interface PersistedEnvelope {
   version: number;
@@ -55,30 +68,42 @@ function migrateLevelUpHistory(history: unknown): LevelUpRecord[] {
 }
 
 /**
- * v.3 "Height – Vert Jump Modifier" migration.
+ * Physical-attribute migration for older saves.
  *
- * Pre-v.3 saves stored `verticalCm = 45 + 3 × rawVerticalRoll` and had no
- * `verticalModifier`. Recompute both from the stored rolls so old localStorage
- * characters are corrected in place, and refresh the cached reaches.
+ *  - v1/v2 → v3: both roll→cm conversions were off from the printed Physical
+ *    Attributes Table (height +2 cm, vertical +6 cm). Recompute both columns
+ *    from the stored rolls.
+ *  - v1 → v2: `verticalCm` used the RAW vertical roll and `verticalModifier` did
+ *    not exist. Recompute from the rolls via the v.3 modifier.
  *
- * Idempotent: a v2 physical block recomputes to exactly the same numbers.
- * Height growth from Interhigh level-ups is in cm (the roll is unchanged), so
- * the stored `heightCm` is preserved rather than recomputed from the roll.
+ * Interhigh height growth is banked in cm and is not encoded in the height roll,
+ * so it is measured against the schema version's own base conversion and carried
+ * across to the corrected base height.
+ *
+ * Idempotent: a current-schema physical block recomputes to the same numbers.
  */
-export function migratePhysical(character: Character): Character {
+export function migratePhysical(character: Character, version: number = SCHEMA_VERSION): Character {
   const physical = character.physical as PhysicalAttributes | null;
   if (!physical || typeof physical.heightRoll !== 'number' || typeof physical.verticalRoll !== 'number') {
     return character;
   }
   const fresh = makePhysicalAttributes(physical.heightRoll, physical.verticalRoll);
+
+  // Separate banked level-up growth (cm) from the base table height, using the
+  // conversion that was in force when the save was written.
+  const baseAtSaveTime = version <= 2 ? legacyHeightCm(physical.heightRoll) : fresh.heightCm;
+  const growthCm = typeof physical.heightCm === 'number'
+    ? Math.round((physical.heightCm - baseAtSaveTime) * 10) / 10  // growth is 1d20 × 0.1 cm
+    : 0;
+
   const migrated: PhysicalAttributes = {
     ...physical,
-    // keep any accrued height growth (cm) that is not represented in the roll
-    heightCm: typeof physical.heightCm === 'number' ? physical.heightCm : fresh.heightCm,
+    heightCm: Math.round((fresh.heightCm + growthCm) * 10) / 10,
     verticalModifier: fresh.verticalModifier,
     verticalCm: fresh.verticalCm,
   };
-  if (migrated.verticalCm === physical.verticalCm &&
+  if (migrated.heightCm === physical.heightCm &&
+      migrated.verticalCm === physical.verticalCm &&
       migrated.verticalModifier === physical.verticalModifier) {
     return character;
   }
@@ -137,8 +162,8 @@ export function loadSaved(): Character | null {
     }
     // Migrate: drop pre-two-event level-up records (banked AP is preserved separately)
     character.levelUpHistory = migrateLevelUpHistory(character.levelUpHistory);
-    // Migrate: v.3 Height → Vert Jump Modifier (recompute verticalCm from the rolls)
-    return migratePhysical(character);
+    // Migrate: v.3 modifier + corrected roll→cm table conversions
+    return migratePhysical(character, parsed.version);
   } catch {
     return null;
   }
@@ -232,8 +257,8 @@ export async function importCharacterFromFile(
     }
     // Migrate: drop pre-two-event level-up records (banked AP is preserved separately)
     character.levelUpHistory = migrateLevelUpHistory(character.levelUpHistory);
-    // Migrate: v.3 Height → Vert Jump Modifier (recompute verticalCm from the rolls)
-    return { ok: true, character: migratePhysical(character) };
+    // Migrate: v.3 modifier + corrected roll→cm table conversions
+    return { ok: true, character: migratePhysical(character, parsed.version) };
   } catch (err) {
     return { ok: false, error: `Unexpected error: ${String(err)}` };
   }

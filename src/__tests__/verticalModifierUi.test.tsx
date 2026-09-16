@@ -15,7 +15,7 @@ import { buildDiscordExport } from '../export/discord';
 import { INITIAL_CHARACTER } from '../state/characterStore';
 import { makePhysicalAttributes, type Character } from '../types';
 
-// Height roll 22 → 194 cm and a −9 vert modifier; raw vertical roll 18 → 9 → 72 cm.
+// Height roll 22 → 192 cm and a −9 vert modifier; raw vertical roll 18 → 9 → 66 cm.
 const CHAR: Character = {
   ...INITIAL_CHARACTER,
   name: 'Modifier Tester',
@@ -39,13 +39,13 @@ describe('PhysicalStep shows the v.3 modifier maths', () => {
 
   it('spells out the height → modifier lookup', () => {
     renderWith(<PhysicalStep />);
-    expect(screen.getByText(/Roll 22 -> 194 cm, vert modifier/)).toBeInTheDocument();
+    expect(screen.getByText(/Roll 22 -> 192 cm, vert modifier/)).toBeInTheDocument();
     expect(screen.getByText('-9')).toBeInTheDocument();
   });
 
   it('spells out the vertical jump arithmetic (roll − mod = effective → cm)', () => {
     renderWith(<PhysicalStep />);
-    expect(screen.getAllByText(/Roll 18 -9 = 9\s*->\s*72 cm/).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/Roll 18 -9 = 9\s*->\s*66 cm/).length).toBeGreaterThan(0);
   });
 
   it('labels the vertical chart as conditional on the assigned height roll', () => {
@@ -57,7 +57,7 @@ describe('PhysicalStep shows the v.3 modifier maths', () => {
 
   it('notes the modifier in the Vertical Jump slot sublabel', () => {
     renderWith(<PhysicalStep />);
-    expect(screen.getAllByText('((3d10 + height mod) x 3 + 45 cm)').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('((3d10 + height mod) x 3 + 39 cm)').length).toBeGreaterThan(0);
   });
 });
 
@@ -66,13 +66,13 @@ describe('ReachesStep shows the modifier alongside the vertical', () => {
 
   it('reports the modified vertical and its modifier', () => {
     renderWith(<ReachesStep />);
-    expect(screen.getByText(/Vertical Jump \(72 cm, mod -9\)/)).toBeInTheDocument();
+    expect(screen.getByText(/Vertical Jump \(66 cm, mod -9\)/)).toBeInTheDocument();
   });
 });
 
 describe('Discord export', () => {
   it('lists the vertical jump with its modifier', () => {
     const text = buildDiscordExport(CHAR, null, computeDerived(CHAR));
-    expect(text).toMatch(/Vertical Jump: 72 cm .*\(mod -9\)/);
+    expect(text).toMatch(/Vertical Jump: 66 cm .*\(mod -9\)/);
   });
 });

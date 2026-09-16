@@ -30,7 +30,7 @@ export interface PhysicalAttributes {
   heightRoll: number;   // 3–30, assigned from pool
   /** Raw 3d10 vertical roll (3–30) as assigned from the pool, BEFORE the modifier. */
   verticalRoll: number;
-  /** Height in cm = 150 + 2 × heightRoll */
+  /** Height in cm = 148 + 2 × heightRoll (Physical Attributes Table) */
   heightCm: number;
   /**
    * v.3 "Height – Vert Jump Modifier": looked up from the HEIGHT roll and added
@@ -38,7 +38,7 @@ export interface PhysicalAttributes {
    */
   verticalModifier: number;
   /**
-   * Vertical jump in cm = 45 + 3 × clamp(verticalRoll + verticalModifier, 3, 30).
+   * Vertical jump in cm = 39 + 3 × clamp(verticalRoll + verticalModifier, 3, 30).
    * NOTE: derived from the MODIFIED roll (v.3 rule), not the raw roll.
    */
   verticalCm: number;
@@ -242,19 +242,24 @@ export interface Character {
 // Conversion helpers (PLAN.md §2)
 // ─────────────────────────────────────────────────────────────────────────────
 
-/** Height in cm from 3d10 roll total: 150 + 2 × roll */
+/**
+ * Height in cm from a 3d10 roll total: 148 + 2 × roll.
+ * Fits the Physical Attributes Table exactly: roll 3 → 154, 20 → 188, 30 → 208.
+ */
 export function rollToHeightCm(roll: number): number {
-  return 150 + 2 * roll;
+  return 148 + 2 * roll;
 }
 
 /**
- * Vertical jump in cm from a 3d10 roll total: 45 + 3 × roll.
- * This is the raw Physical Attributes Table conversion — callers that start from
- * the assigned pool rolls should use `verticalCmFromRolls()` instead so the v.3
- * Height → Vert Jump Modifier is applied.
+ * Vertical jump in cm from a 3d10 roll total: 39 + 3 × roll.
+ * Fits the Physical Attributes Table exactly: roll 3 → 48, 20 → 99, 30 → 129.
+ *
+ * This is the raw table conversion — callers that start from the assigned pool
+ * rolls should use `verticalCmFromRolls()` instead so the v.3 Height → Vert Jump
+ * Modifier is applied first.
  */
 export function rollToVerticalCm(roll: number): number {
-  return 45 + 3 * roll;
+  return 39 + 3 * roll;
 }
 
 // ── v.3 Height → Vert Jump Modifier ───────────────────────────────────────────

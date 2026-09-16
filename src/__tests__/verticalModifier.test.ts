@@ -1,14 +1,9 @@
 // src/__tests__/verticalModifier.test.ts
 // v.3 rule — "Height - Vert Jump Modifier" (Physical Attributes Table).
 // The modifier is looked up from the HEIGHT roll, added to the VERTICAL roll in
-// roll units, clamped to 3-30, and only then converted to cm via the app's
-// existing `rollToVerticalCm` (45 + 3 x roll).
-//
-// NOTE (pre-existing, out of scope here): the app's roll->cm conversions are
-// offset from the printed table by a constant — the table reads 154 cm / 48 cm
-// at roll 3 while `rollToHeightCm`/`rollToVerticalCm` give 156 cm / 54 cm. That
-// offset predates the v.3 modifier rule, so these tests assert against the
-// existing helpers rather than the printed cm values.
+// roll units, clamped to 3-30, and only then converted to cm via
+// `rollToVerticalCm` (39 + 3 x roll, the Physical Attributes Table conversion).
+// The full table is asserted row by row in physicalTable.test.ts.
 import { describe, it, expect } from 'vitest';
 import {
   clampPhysicalRoll,
@@ -72,9 +67,9 @@ describe('heightRollToVerticalModifier', () => {
 
 describe('effectiveVerticalRoll / verticalCmFromRolls', () => {
   it('applies the modifier in roll units', () => {
-    // height 22 -> modifier -9; raw vertical 18 -> effective 9 -> 72 cm
+    // height 22 -> modifier -9; raw vertical 18 -> effective 9 -> 66 cm
     expect(effectiveVerticalRoll(22, 18)).toBe(9);
-    expect(verticalCmFromRolls(22, 18)).toBe(72);
+    expect(verticalCmFromRolls(22, 18)).toBe(66); // table row 9
   });
 
   it('a short player gains: height 5 (+5) with vertical 10 -> roll 15', () => {
@@ -91,12 +86,12 @@ describe('effectiveVerticalRoll / verticalCmFromRolls', () => {
 
   it('clamps low: height 30 (-17) + vertical 5 -> roll 3 (table minimum)', () => {
     expect(effectiveVerticalRoll(30, 5)).toBe(3);      // 5 - 17 = -12, clamped to 3
-    expect(verticalCmFromRolls(30, 5)).toBe(rollToVerticalCm(3)); // 54 cm (table prints 48)
+    expect(verticalCmFromRolls(30, 5)).toBe(48);       // table row 3
   });
 
   it('clamps high: height 3 (+7) + vertical 28 -> roll 30 (table maximum)', () => {
     expect(effectiveVerticalRoll(3, 28)).toBe(30);     // 28 + 7 = 35, clamped to 30
-    expect(verticalCmFromRolls(3, 28)).toBe(rollToVerticalCm(30)); // 135 cm (table prints 129)
+    expect(verticalCmFromRolls(3, 28)).toBe(129);      // table row 30
   });
 
   it('never leaves the 3-30 table domain for any roll pair', () => {
@@ -105,7 +100,7 @@ describe('effectiveVerticalRoll / verticalCmFromRolls', () => {
         const eff = effectiveVerticalRoll(h, v);
         expect(eff).toBeGreaterThanOrEqual(3);
         expect(eff).toBeLessThanOrEqual(30);
-        expect(verticalCmFromRolls(h, v)).toBe(45 + 3 * eff);
+        expect(verticalCmFromRolls(h, v)).toBe(39 + 3 * eff);
       }
     }
   });
@@ -117,9 +112,9 @@ describe('makePhysicalAttributes', () => {
     expect(p).toEqual({
       heightRoll: 22,
       verticalRoll: 18,      // raw, as assigned from the pool
-      heightCm: 194,         // 150 + 2*22
+      heightCm: 192,         // table: 148 + 2*22
       verticalModifier: -9,
-      verticalCm: 72,        // 45 + 3*(18-9)
+      verticalCm: 66,        // table: 39 + 3*(18-9)
     });
     expect(p.verticalCm).toBe(rollToVerticalCm(effectiveVerticalRoll(22, 18)));
   });
@@ -139,7 +134,7 @@ describe('ASSIGN_PHYSICAL reducer', () => {
       type: 'ASSIGN_PHYSICAL', heightRoll: 22, verticalRoll: 18,
     });
     expect(next.physical).toEqual({
-      heightRoll: 22, verticalRoll: 18, heightCm: 194, verticalModifier: -9, verticalCm: 72,
+      heightRoll: 22, verticalRoll: 18, heightCm: 192, verticalModifier: -9, verticalCm: 66,
     });
   });
 
@@ -147,9 +142,9 @@ describe('ASSIGN_PHYSICAL reducer', () => {
     const next = characterReducer(INITIAL_CHARACTER, {
       type: 'ASSIGN_PHYSICAL', heightRoll: 22, verticalRoll: 18,
     });
-    expect(next.reaches!.standingReachCm).toBeCloseTo(1.3 * 194, 10);
-    expect(next.reaches!.spikingReachCm).toBeCloseTo(1.3 * 194 + 72, 10);   // 72, not 99
-    expect(next.reaches!.blockingReachCm).toBeCloseTo(1.3 * 194 + 0.85 * 72, 10);
+    expect(next.reaches!.standingReachCm).toBeCloseTo(1.3 * 192, 10);
+    expect(next.reaches!.spikingReachCm).toBeCloseTo(1.3 * 192 + 66, 10);   // 66, not 93
+    expect(next.reaches!.blockingReachCm).toBeCloseTo(1.3 * 192 + 0.85 * 66, 10);
   });
 
   it('clamps at assignment time (height 30 + vertical 5 -> table-minimum roll 3)', () => {
@@ -157,7 +152,7 @@ describe('ASSIGN_PHYSICAL reducer', () => {
       type: 'ASSIGN_PHYSICAL', heightRoll: 30, verticalRoll: 5,
     });
     expect(next.physical!.verticalModifier).toBe(-17);
-    expect(next.physical!.verticalCm).toBe(rollToVerticalCm(3)); // 54 cm
+    expect(next.physical!.verticalCm).toBe(48); // table row 3
   });
 });
 
@@ -176,7 +171,7 @@ function bruteForceVerticalCmPmf(): Map<number, number> {
     const mod = TABLE[h];
     for (const [v, vp] of rollPmf) {
       const eff = Math.min(30, Math.max(3, v + mod));
-      const cm = 45 + 3 * eff; // mirrors rollToVerticalCm
+      const cm = 39 + 3 * eff; // mirrors rollToVerticalCm
       out.set(cm, (out.get(cm) ?? 0) + hp * vp);
     }
   }
