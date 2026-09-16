@@ -372,8 +372,9 @@ function baseCharacterReducer(state: Character, action: CharacterAction): Charac
  *     If no choice has been made yet, skip (the ability needs a chooser selection).
  * - optionChoice: apply the recorded option's own effects; an unmade choice
  *     applies nothing.
- * - Skills can exceed 4.00 via bonuses and drop below 1.00 via penalties
- *     (v.3 Stamina costs); do NOT clamp.
+ * - Skills can exceed 4.00 via bonuses (no ceiling) but are floored at 1.00
+ *     (STAT_FLOOR in engine/effects.ts) so v.3 Stamina costs cannot push a
+ *     stat below the 4d4 minimum.
  * - Returns null if base skills haven't been assigned yet.
  *
  * The effect maths itself lives in engine/effects.ts so the prereq engine's

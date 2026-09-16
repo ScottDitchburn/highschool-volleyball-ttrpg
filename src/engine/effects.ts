@@ -19,6 +19,14 @@ import { SKILL_STAT_NAMES } from '../types';
 import { ABILITY_MAP } from '../data/abilities';
 
 /**
+ * Lowest value an effective skill stat can reach. A 4d4 average is never
+ * below 1.00, and v.3's Stamina costs (Training, Quick Learner, Weight Lifting,
+ * Game Study) must not push a stat under it — design call, see DATA_NOTES.md.
+ * There is no ceiling: bonuses may still raise a stat above 4.00.
+ */
+export const STAT_FLOOR = 1.0;
+
+/**
  * The stats a chooser actually allows: an explicit shortlist as given (the six VB
  * skills, ['Dig','Block'], ['Stamina','IQ'], …), otherwise all ten.
  */
@@ -96,8 +104,8 @@ function* activeEffects(
  * - `optionChoice`: the recorded option's own statDelta effects are applied;
  *   an unresolved choice applies nothing.
  *
- * Values are NOT clamped: stats may exceed 4.00 via bonuses and may fall below
- * 1.00 via penalties (v.3 Stamina costs). See DATA_NOTES.md.
+ * After all deltas are summed, every stat is floored at STAT_FLOOR (1.00).
+ * There is no ceiling: stats may exceed 4.00 via bonuses. See DATA_NOTES.md.
  */
 export function applyStatEffects(character: Character, baseStats: SkillStats): SkillStats {
   const stats: SkillStats = { ...baseStats };
@@ -115,6 +123,10 @@ export function applyStatEffects(character: Character, baseStats: SkillStats): S
     for (const pick of resolveStatPicks(effect.choose, choice)) {
       stats[pick] = (stats[pick] ?? 0) + effect.delta;
     }
+  }
+
+  for (const stat of SKILL_STAT_NAMES) {
+    if (stats[stat] !== undefined && stats[stat] < STAT_FLOOR) stats[stat] = STAT_FLOOR;
   }
 
   return stats;

@@ -225,11 +225,15 @@ effects on the same ability (the Stamina cost) still apply.
 `evaluateAbility().needsChooser` is true, and a repeatable ability cannot be bought again
 until the outstanding choice is made.
 
-**Clamping:** effective stats are still **not clamped** at either end. The existing
-convention allowed stats above 4.00 via bonuses; v.3's Stamina costs make sub-1.00 values
-reachable (e.g. three Weight Lifting purchases = −1.5 Stamina). Both are left as computed —
-the source gives no floor or ceiling, and clamping would silently hide the cost from the
-player. Noted here as the ambiguity it is.
+**Clamping:** effective stats are **floored at 1.00** (`STAT_FLOOR` in
+`src/engine/effects.ts`) and have **no ceiling**. The existing convention allowed stats above
+4.00 via bonuses and is unchanged. v.3's Stamina costs make sub-1.00 values reachable (e.g.
+three Weight Lifting purchases = −1.5 Stamina); the source gives no floor, so this is a
+design call: a stat can never go below the 4d4 minimum of 1.00. The floor is applied once to
+the summed total of all deltas, so it is independent of purchase order: a bonus only lifts a
+floored stat once the summed penalties have been recovered (base 1.0, −0.5, +0.25 → 1.0).
+Prereqs evaluate against the floored value.
+**Date logged:** 2026-09-16 (floor confirmed by the rules author).
 
 ---
 

@@ -15,6 +15,7 @@ import type {
 import { VB_SKILL_STAT_NAMES, heightRollToVerticalModifier } from '../types';
 import { ABILITY_MAP } from '../data/abilities';
 import { computeEffectiveStats, computeDerived } from '../state/characterStore';
+import { STAT_FLOOR } from '../engine/effects';
 import { computeSpent } from '../engine/apEngine';
 import { cumulativeCost, evaluateAbility } from '../engine/prereqEngine';
 
@@ -181,6 +182,44 @@ describe('Rest (new in v.3)', () => {
 });
 
 // ── Weight Lifting ────────────────────────────────────────────────────────────
+
+describe('Stat floor (v.3 Stamina costs)', () => {
+  it('floors an effective stat at 1.00 after summing every penalty', () => {
+    // Three Weight Lifting purchases = -1.5 Stamina; from 2.0 that would be 0.5.
+    const char = makeChar({
+      skills: allStats(2),
+      selectedAbilities: Array.from({ length: 3 }, (_, i) =>
+        makeSel('weight-lifting', 'w' + i, { 0: 'power' })),
+    });
+    const eff = computeEffectiveStats(char)!;
+    expect(eff.Stamina).toBe(STAT_FLOOR);
+    expect(eff.Stamina).toBe(1);
+    // Bonuses on other stats are untouched and there is no ceiling.
+    expect(eff.Power).toBeCloseTo(2.75, 5);
+  });
+
+  it('floors the summed total, independent of purchase order', () => {
+    // Stamina 1.0 base: Weight Lifting (-0.5) + Rest (+0.25) sums to 0.75 -> floored to 1.0.
+    // Two Rests would sum to exactly 1.0; a third lifts it to 1.25.
+    const sels = [
+      makeSel('weight-lifting', 'w1', { 0: 'speed' }),
+      makeSel('rest', 'r1', {}),
+    ];
+    const base = { ...allStats(3), Stamina: 1 };
+    expect(computeEffectiveStats(makeChar({ skills: base, selectedAbilities: sels }))!.Stamina).toBe(1);
+    expect(computeEffectiveStats(makeChar({ skills: base, selectedAbilities: [...sels].reverse() }))!.Stamina).toBe(1);
+    const threeRests = [...sels, makeSel('rest', 'r2', {}), makeSel('rest', 'r3', {})];
+    expect(computeEffectiveStats(makeChar({ skills: base, selectedAbilities: threeRests }))!.Stamina).toBeCloseTo(1.25, 5);
+  });
+
+  it('leaves stats above the floor exactly as computed', () => {
+    const char = makeChar({
+      skills: allStats(3),
+      selectedAbilities: [makeSel('game-study', 'g1', {})],
+    });
+    expect(computeEffectiveStats(char)!.Stamina).toBeCloseTo(2.75, 5);
+  });
+});
 
 describe('Weight Lifting (new in v.3)', () => {
   const ability = ABILITY_MAP['weight-lifting'];
