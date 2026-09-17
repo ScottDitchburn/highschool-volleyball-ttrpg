@@ -192,7 +192,17 @@ export type Effect =
    * purchase and the pick is recorded on the instance. Options may be purely
    * narrative (Flexibility) or carry effects (Weight Lifting).
    */
-  | { kind: 'optionChoice'; prompt: string; options: AbilityOption[] };
+  | {
+      kind: 'optionChoice';
+      prompt: string;
+      options: AbilityOption[];
+      /**
+       * When true, each purchased copy of the ability must record a DIFFERENT
+       * option (Flexibility): an option already taken by another copy is not
+       * offered, and a duplicate pick counts as an unresolved choice.
+       */
+      distinctPerPurchase?: boolean;
+    };
 
 export interface AbilityTier {
   label: string;    // e.g. "Oikawa Serve"

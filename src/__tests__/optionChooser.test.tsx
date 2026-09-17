@@ -97,6 +97,43 @@ describe('optionChoice chooser UI', () => {
     ).toBeTruthy();
   });
 
+  it('greys out a Flexibility option already taken by the other purchase', () => {
+    const first: SelectedAbility = {
+      uid: 'f1', abilityId: 'flexibility', tier: 0, chooserSelections: { 0: 'spin' },
+    };
+    const second: SelectedAbility = {
+      uid: 'f2', abilityId: 'flexibility', tier: 0, chooserSelections: {},
+    };
+    const onChooserChange = vi.fn();
+    render(
+      <AbilityCard
+        ability={ABILITY_MAP['flexibility']}
+        evaluation={evaluation}
+        isSelected
+        instances={[first, second]}
+        apRemaining={20}
+        onSelect={() => {}}
+        onDeselect={() => {}}
+        onTierChange={() => {}}
+        onChooserChange={onChooserChange}
+      />,
+    );
+
+    const spinButtons = screen.getAllByRole('button', { name: 'Major spin' });
+    const rotationButtons = screen.getAllByRole('button', { name: 'Midair rotation' });
+    // First copy: its own pick stays enabled; the other option is still open to it.
+    expect((spinButtons[0] as HTMLButtonElement).disabled).toBe(false);
+    expect(spinButtons[0].getAttribute('aria-pressed')).toBe('true');
+    // Second copy: "Major spin" is taken, "Midair rotation" is the only live choice.
+    expect((spinButtons[1] as HTMLButtonElement).disabled).toBe(true);
+    expect((rotationButtons[1] as HTMLButtonElement).disabled).toBe(false);
+
+    fireEvent.click(spinButtons[1]);
+    expect(onChooserChange).not.toHaveBeenCalled();
+    fireEvent.click(rotationButtons[1]);
+    expect(onChooserChange).toHaveBeenCalledWith('f2', 0, 'midair-rotation');
+  });
+
   it('does not offer Speed / Power / IQ / Stamina for a v.3 Training purchase', () => {
     const instance: SelectedAbility = {
       uid: 't1', abilityId: 'training', tier: 0, chooserSelections: {},

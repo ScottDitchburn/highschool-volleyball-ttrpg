@@ -416,15 +416,25 @@ describe('Flexibility (new in v.3)', () => {
     expect(evaluateAbility(ability, twoCopies, allStats(3.5), null).maxedOut).toBe(true);
   });
 
-  it('records the pick per purchase, and both purchases may pick the same option', () => {
+  it('records the pick per purchase; the two purchases must pick different options', () => {
+    const different = makeChar({
+      selectedAbilities: [
+        makeSel('flexibility', 'f1', { 0: 'spin' }),
+        makeSel('flexibility', 'f2', { 0: 'midair-rotation' }),
+      ],
+    });
+    expect(evaluateAbility(ability, different, allStats(3.5), null).needsChooser).toBe(false);
+
+    // A duplicate (e.g. from an older save) leaves the second copy owing a choice.
     const sameTwice = makeChar({
       selectedAbilities: [
         makeSel('flexibility', 'f1', { 0: 'spin' }),
         makeSel('flexibility', 'f2', { 0: 'spin' }),
       ],
     });
-    expect(sameTwice.selectedAbilities.map((s) => s.chooserSelections[0])).toEqual(['spin', 'spin']);
-    expect(evaluateAbility(ability, sameTwice, allStats(3.5), null).needsChooser).toBe(false);
+    expect(evaluateAbility(ability, sameTwice, allStats(3.5), null).needsChooser).toBe(true);
+    const effect = ability.effects![0] as { kind: 'optionChoice'; distinctPerPurchase?: boolean };
+    expect(effect.distinctPerPurchase).toBe(true);
   });
 
   it('both options are narrative only — no stat or reach effect', () => {

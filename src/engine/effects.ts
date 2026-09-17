@@ -184,14 +184,41 @@ export function applyDerivedEffects(character: Character): DerivedReaches | null
 export function instanceNeedsChooser(
   effects: Effect[] | undefined,
   chooserSelections: Record<number, SkillStat | SkillStat[] | string>,
+  /**
+   * The other purchased copies of the same ability. For a `distinctPerPurchase`
+   * option chooser, an option one of them already recorded is off limits, so a
+   * copy that duplicates it still owes a (different) choice.
+   */
+  siblings: ReadonlyArray<{ chooserSelections: Record<number, SkillStat | SkillStat[] | string> }> = [],
 ): boolean {
   if (!effects) return false;
   return effects.some((effect, index) => {
     const choice = chooserSelections[index];
-    if (effect.kind === 'optionChoice') return resolveOption(effect, choice) === undefined;
+    if (effect.kind === 'optionChoice') {
+      const option = resolveOption(effect, choice);
+      if (option === undefined) return true;
+      return effect.distinctPerPurchase === true && takenOptionIds(effect, index, siblings).has(option.id);
+    }
     if (effect.kind === 'statDelta' && effect.choose) {
       return resolveStatPicks(effect.choose, choice).length === 0;
     }
     return false;
   });
+}
+
+/**
+ * Option ids already recorded for chooser `effectIndex` by the given copies.
+ * Used to grey out taken options on the card and to flag duplicate picks.
+ */
+export function takenOptionIds(
+  effect: Extract<Effect, { kind: 'optionChoice' }>,
+  effectIndex: number,
+  copies: ReadonlyArray<{ chooserSelections: Record<number, SkillStat | SkillStat[] | string> }>,
+): Set<string> {
+  const taken = new Set<string>();
+  for (const copy of copies) {
+    const option = resolveOption(effect, copy.chooserSelections[effectIndex]);
+    if (option) taken.add(option.id);
+  }
+  return taken;
 }
