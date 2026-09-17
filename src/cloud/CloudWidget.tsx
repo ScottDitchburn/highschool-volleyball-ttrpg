@@ -4,7 +4,8 @@
 //   unconfigured            → nothing (a muted hint in dev builds)
 //   configured, signed out  → "Sign in with Discord" (+ browse public saves)
 //   signed in               → Discord name/avatar → menu with Save to cloud,
-//                             My characters, Public characters, Sign out
+//                             My characters, Public characters, Bulk upload,
+//                             Sign out
 //
 // Cloud storage is additive: localStorage autosave is untouched either way.
 // ─────────────────────────────────────────────────────────────────────────────
@@ -15,12 +16,13 @@ import { useCloudAuth } from './authContext';
 import { isDevBuild } from './config';
 import { useCloudSave } from './useCloudSave';
 import { listMine, listPublic, load, remove, setPublic } from './characters';
+import { bulkUpload, parseBulkFiles, type BulkItem, type BulkUploadOutcome } from './bulkImport';
 import { shortDate, yearBadge } from './format';
 import type { CloudCharacterSummary, CloudClient } from './types';
 import type { Character } from '../types';
 import { CHARACTERS_PATH, navigateTo, requestJumpToFurthestStep } from '../navigation';
 
-type PanelView = 'menu' | 'mine' | 'public';
+type PanelView = 'menu' | 'mine' | 'public' | 'bulk';
 
 // ── shared list plumbing ─────────────────────────────────────────────────────
 
@@ -261,6 +263,187 @@ function PublicCharactersPanel({
   );
 }
 
+
+// ── Bulk upload ──────────────────────────────────────────────────────────────
+
+type BulkPhase =
+  | { status: 'idle' }
+  | { status: 'reading' }
+  | { status: 'ready'; items: BulkItem[]; errors: string[] }
+  | { status: 'uploading'; total: number; done: number; errors: string[] }
+  | { status: 'done'; outcomes: BulkUploadOutcome[]; errors: string[] };
+
+function BulkUploadPanel({
+  client,
+  userId,
+  onViewMine,
+}: {
+  client: CloudClient;
+  userId: string;
+  onViewMine: () => void;
+}) {
+  const [phase, setPhase] = useState<BulkPhase>({ status: 'idle' });
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  const handleFiles = async (list: FileList | null) => {
+    if (!list || list.length === 0) return;
+    setPhase({ status: 'reading' });
+    const files = Array.from(list);
+    const parsed = await parseBulkFiles(files);
+    setPhase({ status: 'ready', items: parsed.items, errors: parsed.errors });
+  };
+
+  const handleUpload = async () => {
+    if (phase.status !== 'ready' || phase.items.length === 0) return;
+    const { items, errors } = phase;
+    setPhase({ status: 'uploading', total: items.length, done: 0, errors });
+    const outcomes = await bulkUpload(client, userId, items, (done, total) =>
+      setPhase({ status: 'uploading', total, done, errors }),
+    );
+    setPhase({ status: 'done', outcomes, errors });
+  };
+
+  const reset = () => {
+    if (inputRef.current) inputRef.current.value = '';
+    setPhase({ status: 'idle' });
+  };
+
+  const busy = phase.status === 'reading' || phase.status === 'uploading';
+  const skipped = 'errors' in phase ? phase.errors : [];
+
+  return (
+    <div className="flex flex-col gap-3">
+      <p className="text-charcoal-400 text-xs leading-relaxed">
+        Pick any number of saved JSON files: builder exports, coach backups (every
+        player on the roster) or plain character objects. Each one becomes a new
+        private character on your account. The character you are building is
+        untouched.
+      </p>
+
+      <label className="flex flex-col gap-1.5">
+        <span className="text-charcoal-300 text-xs font-semibold uppercase tracking-wider">
+          Character files
+        </span>
+        <input
+          ref={inputRef}
+          type="file"
+          accept=".json,application/json"
+          multiple
+          disabled={busy}
+          aria-label="Character files"
+          onChange={(e) => void handleFiles(e.target.files)}
+          className="text-xs text-charcoal-300 file:mr-3 file:rounded file:border file:border-charcoal-700
+                     file:bg-charcoal-900 file:px-3 file:py-1.5 file:text-xs file:font-semibold
+                     file:text-orange-400 hover:file:border-orange-600 disabled:opacity-40"
+        />
+      </label>
+
+      {phase.status === 'reading' && <ListMessage>Reading files…</ListMessage>}
+
+      {phase.status === 'ready' && (
+        <div className="flex flex-col gap-2">
+          <p className="text-sm text-charcoal-200" role="status">
+            {phase.items.length === 0
+              ? 'No characters found in the chosen files.'
+              : `${phase.items.length} character${phase.items.length === 1 ? '' : 's'} ready to upload.`}
+          </p>
+          {phase.items.length > 0 && (
+            <ul className="max-h-40 overflow-y-auto text-xs text-charcoal-400 flex flex-col gap-0.5 pr-1">
+              {phase.items.map((item, i) => (
+                <li key={`${item.source}-${i}`} className="flex justify-between gap-2">
+                  <span className="truncate text-charcoal-200">{item.name}</span>
+                  <span className="truncate text-charcoal-600">{item.source}</span>
+                </li>
+              ))}
+            </ul>
+          )}
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={() => void handleUpload()}
+              disabled={phase.items.length === 0}
+              className="btn-primary text-sm py-1.5 px-3 disabled:opacity-40"
+            >
+              Upload {phase.items.length > 0 ? phase.items.length : ''}
+            </button>
+            <button type="button" onClick={reset} className="btn-ghost text-sm py-1.5 px-3">
+              Clear
+            </button>
+          </div>
+        </div>
+      )}
+
+      {phase.status === 'uploading' && (
+        <div className="flex flex-col gap-1.5">
+          <p className="text-sm text-charcoal-200" role="status" aria-live="polite">
+            Uploading {phase.done} of {phase.total}…
+          </p>
+          <div className="h-1.5 w-full rounded bg-charcoal-800 overflow-hidden" aria-hidden="true">
+            <div
+              className="h-full bg-orange-500 transition-[width]"
+              style={{ width: `${phase.total === 0 ? 0 : Math.round((phase.done / phase.total) * 100)}%` }}
+            />
+          </div>
+        </div>
+      )}
+
+      {phase.status === 'done' && (
+        <BulkSummary outcomes={phase.outcomes} onViewMine={onViewMine} onReset={reset} />
+      )}
+
+      {skipped.length > 0 && (
+        <div className="flex flex-col gap-1">
+          <p className="text-xs text-amber-400" role="alert">
+            {skipped.length} {skipped.length === 1 ? 'entry was' : 'entries were'} skipped:
+          </p>
+          <ul className="max-h-32 overflow-y-auto text-xs text-charcoal-500 flex flex-col gap-0.5 pr-1">
+            {skipped.map((msg, i) => (
+              <li key={i} className="break-words">{msg}</li>
+            ))}
+          </ul>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function BulkSummary({
+  outcomes,
+  onViewMine,
+  onReset,
+}: {
+  outcomes: BulkUploadOutcome[];
+  onViewMine: () => void;
+  onReset: () => void;
+}) {
+  const uploaded = outcomes.filter((o) => o.ok).length;
+  const failed = outcomes.filter((o) => !o.ok);
+  return (
+    <div className="flex flex-col gap-2">
+      <p className={`text-sm ${failed.length === 0 ? 'text-green-400' : 'text-charcoal-200'}`} role="status">
+        {uploaded} uploaded{failed.length > 0 ? `, ${failed.length} failed` : ''}.
+      </p>
+      {failed.length > 0 && (
+        <ul className="max-h-32 overflow-y-auto text-xs text-red-400 flex flex-col gap-0.5 pr-1">
+          {failed.map((o, i) => (
+            <li key={i} className="break-words">
+              {o.item.name} ({o.item.source}): {o.error}
+            </li>
+          ))}
+        </ul>
+      )}
+      <div className="flex gap-2">
+        <button type="button" onClick={onViewMine} className="btn-ghost text-sm py-1.5 px-3">
+          My characters
+        </button>
+        <button type="button" onClick={onReset} className="btn-ghost text-sm py-1.5 px-3">
+          Upload more
+        </button>
+      </div>
+    </div>
+  );
+}
+
 // ── The banner control ───────────────────────────────────────────────────────
 
 /** After a cloud character is loaded, make sure the builder shows the wizard. */
@@ -366,7 +549,13 @@ export function CloudWidget() {
         >
           <div className="flex items-center justify-between">
             <h2 className="text-sm font-bold uppercase tracking-widest text-orange-400">
-              {view === 'mine' ? 'My characters' : view === 'public' ? 'Public characters' : 'Cloud'}
+              {view === 'mine'
+                ? 'My characters'
+                : view === 'public'
+                  ? 'Public characters'
+                  : view === 'bulk'
+                    ? 'Bulk upload'
+                    : 'Cloud'}
             </h2>
             <button
               type="button"
@@ -443,6 +632,14 @@ export function CloudWidget() {
               </button>
               <button
                 type="button"
+                onClick={() => setView('bulk')}
+                className="btn-ghost text-sm py-1.5 px-3 text-left"
+                title="Upload many saved character files to your account at once"
+              >
+                Bulk upload
+              </button>
+              <button
+                type="button"
                 onClick={() => {
                   setView(null);
                   void auth.signOut();
@@ -462,6 +659,14 @@ export function CloudWidget() {
                 setView(null);
                 announceLoaded(loaded);
               }}
+            />
+          )}
+
+          {view === 'bulk' && auth.client && auth.userId && (
+            <BulkUploadPanel
+              client={auth.client}
+              userId={auth.userId}
+              onViewMine={() => setView('mine')}
             />
           )}
 
