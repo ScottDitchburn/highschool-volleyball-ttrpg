@@ -92,7 +92,7 @@ export function CloudSaveButton() {
             className="w-4 h-4 accent-orange-500"
             aria-label="Make this character public"
           />
-          {isPublic ? 'Public' : 'Private'}
+          Public
         </label>
       )}
       </div>

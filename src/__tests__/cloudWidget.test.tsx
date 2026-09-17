@@ -220,12 +220,12 @@ describe('Review step public toggle', () => {
 
     const box = await screen.findByRole('checkbox', { name: /make this character public/i });
     expect((box as HTMLInputElement).checked).toBe(false);
-    expect(screen.getByText('Private')).toBeTruthy();
+    expect(screen.getByText('Public')).toBeTruthy(); // label is constant; the tick carries the state
 
     await act(async () => {
       fireEvent.click(box);
     });
-    await waitFor(() => expect(screen.getByText('Public')).toBeTruthy());
+    await waitFor(() => expect((box as HTMLInputElement).checked).toBe(true));
     const update = db.calls.find((c) => c.op === 'update');
     expect(update?.values).toEqual({ is_public: true });
     expect(update?.filters).toEqual([{ column: 'id', value: 'row-1' }]);
