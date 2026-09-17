@@ -18,7 +18,7 @@ Node 20+.
 
 ## Key locations
 
-- [src/data/abilities.ts](src/data/abilities.ts) — single source of truth for all 45 abilities. Schema is the `Ability` type in [src/types.ts](src/types.ts).
+- [src/data/abilities.ts](src/data/abilities.ts) — single source of truth for all 45 abilities. Schema is the `Ability` type in [src/types.ts](src/types.ts). [src/data/traits.ts](src/data/traits.ts) holds the personality trait lists (two per character; preferred positions and bio live on `Character.profile`).
 - [src/engine/effects.ts](src/engine/effects.ts) — the one implementation of "apply the selected abilities' effects" (stats + reaches), shared by the store selectors and the prereq engine.
 - [src/engine/](src/engine/) — `prereqEngine.ts` (effective stats + prereq validation), `apEngine.ts` (Ability Point budget).
 - [src/steps/](src/steps/) — one file per wizard step (Physical → Reaches → Skills → Year/Experience → Abilities → Review).

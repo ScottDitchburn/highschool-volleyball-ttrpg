@@ -29,15 +29,18 @@ import {
   experienceFromRoll,
   interhighAp,
   SKILL_STAT_NAMES,
+  EMPTY_PROFILE,
+  profileOf,
 } from '../types';
+import type { PreferredPosition, PreferredPositions } from '../types';
 
 import { ABILITY_MAP } from '../data/abilities';
+import { isValidTraitForSlot } from '../data/traits';
 import { applyStatEffects, applyDerivedEffects } from '../engine/effects';
 import { computeSpent } from '../engine/apEngine';
 import { findIneligibleAbilities } from '../engine/prereqEngine';
 import {
-  seededPhysicalRoll, seededSkillChip, seededYear, seededYearBonus, seededExperienceRoll,
-} from '../rng/seeded';
+  seededPhysicalRoll, seededSkillChip, seededYear, seededYearBonus, seededExperienceRoll, seededTraits } from '../rng/seeded';
 
 // ---------------------------------------------------------------------------
 // UID generator (crypto.randomUUID with fallback)
@@ -82,6 +85,7 @@ export const INITIAL_CHARACTER: Character = {
   apBudget: DEFAULT_AP_BUDGET,
   selectedAbilities: [],
   levelUpHistory: [],
+  profile: EMPTY_PROFILE,
   seed: null,
   seeded: false,
 };
@@ -109,6 +113,9 @@ export type CharacterAction =
   | { type: 'START_SEEDED_RUN'; seed: string }
   | { type: 'IMPORT_CHARACTER'; character: Character }
   | { type: 'SET_CLOUD_ID'; cloudId: string | null }
+  | { type: 'SET_TRAIT'; slot: 0 | 1; traitId: string | null }
+  | { type: 'SET_BIO'; bio: string }
+  | { type: 'SET_POSITION'; rank: keyof PreferredPositions; position: PreferredPosition | null }
   | { type: 'RESET' };
 
 // ---------------------------------------------------------------------------
@@ -138,9 +145,11 @@ function baseCharacterReducer(state: Character, action: CharacterAction): Charac
         base, yearBonus: yb.bonus, experienceBonus: exp.bonus,
         levelUpGains: 0, spent: 0, total, remaining: total,
       };
+      const [traitA, traitB] = seededTraits(seed);
       return {
         ...state,
         seed, seeded: true,
+        profile: { ...profileOf(state), traits: [traitA, traitB] },
         physicalPool: { rollA: { dice: rollA.dice, total: rollA.total }, rollB: { dice: rollB.dice, total: rollB.total } },
         physical: null,
         reaches: null,
@@ -360,6 +369,25 @@ function baseCharacterReducer(state: Character, action: CharacterAction): Charac
       }
       if (state.cloudId === action.cloudId) return state;
       return { ...state, cloudId: action.cloudId };
+    }
+
+    // ── Player profile (Review step) ──
+    case 'SET_TRAIT': {
+      // Seeded runs keep the traits the seed dealt; slot validity is enforced by the UI's option lists.
+      if (state.seeded) return state;
+      if (!isValidTraitForSlot(action.traitId, action.slot)) return state;
+      const traits: [string | null, string | null] = [...profileOf(state).traits];
+      traits[action.slot] = action.traitId;
+      return { ...state, profile: { ...profileOf(state), traits } };
+    }
+    case 'SET_BIO':
+      return { ...state, profile: { ...profileOf(state), bio: action.bio } };
+    case 'SET_POSITION': {
+      const profile = profileOf(state);
+      return {
+        ...state,
+        profile: { ...profile, positions: { ...profile.positions, [action.rank]: action.position } },
+      };
     }
 
     case 'RESET':

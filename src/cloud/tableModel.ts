@@ -30,6 +30,8 @@ export type SortKey =
   | 'abilities'
   | 'visibility'
   | 'updated'
+  | 'positions'
+  | 'traits'
   | `stat:${SkillStat}`;
 
 /** Sort key for one of the ten stat columns. */
@@ -135,7 +137,9 @@ export function filterRows(
     return (
       row.ownerLabel.toLowerCase().includes(q) ||
       row.name.toLowerCase().includes(q) ||
-      row.yearLabel.toLowerCase().includes(q)
+      row.yearLabel.toLowerCase().includes(q) ||
+      row.positions.toLowerCase().includes(q) ||
+      row.traits.some((t) => t.toLowerCase().includes(q))
     );
   });
 }
@@ -188,6 +192,8 @@ export function sortRows(rows: CharacterTableRow[], sort: SortSpec): CharacterTa
         if (fixed === null) cmp = (a.verticalCm as number) - (b.verticalCm as number);
         break;
       case 'abilities':  cmp = a.abilityCount - b.abilityCount; break;
+      case 'positions':  cmp = compareStrings(a.positions, b.positions); break;
+      case 'traits':     cmp = compareStrings(a.traits.join(', '), b.traits.join(', ')); break;
       case 'visibility': cmp = Number(a.isPublic) - Number(b.isPublic); break;
       case 'updated':
         fixed = nullsLast(a.updatedAt, b.updatedAt);

@@ -35,6 +35,8 @@ function summary(over: Partial<CloudCharacterSummary> & { id: string; name: stri
     abilityCount: 0,
     abilityIds: [],
     stats: null,
+    traits: [],
+    positions: '',
     ...over,
   };
 }

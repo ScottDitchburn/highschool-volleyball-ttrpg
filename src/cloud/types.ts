@@ -110,6 +110,9 @@ export interface CloudCharacterSummary {
   abilityIds: string[];
   /** Effective skill stats (base + ability effects), or null when unreadable. */
   stats: SkillStats | null;
+  /** Trait labels (0–2) and preferred positions as short codes ("S / OH"). */
+  traits: string[];
+  positions: string;
 }
 
 /** The signed-in user's display info, from `public.profiles`. */

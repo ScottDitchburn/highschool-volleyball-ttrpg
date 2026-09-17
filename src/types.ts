@@ -261,6 +261,64 @@ export function interhighAp(prelimGames: number, nationalGames: number): number 
   return 2 * prelimGames + 3 * nationalGames;
 }
 
+// ── Player profile (traits, positions, bio) ───────────────────────────────────
+
+export type TraitKind = 'positive' | 'neutral' | 'negative';
+
+/** Preferred playing positions. Stored as the short code; shown in full in dropdowns. */
+export type PreferredPosition = 'S' | 'OH' | 'OPP' | 'MB' | 'Li' | 'BS' | 'PS';
+
+export const PREFERRED_POSITIONS: { code: PreferredPosition; name: string }[] = [
+  { code: 'S',   name: 'Setter' },
+  { code: 'OH',  name: 'Outside Hitter' },
+  { code: 'OPP', name: 'Opposite Hitter' },
+  { code: 'MB',  name: 'Middle Blocker' },
+  { code: 'Li',  name: 'Libero' },
+  { code: 'BS',  name: 'Bench Sitter' },
+  { code: 'PS',  name: 'Pinch Server' },
+];
+
+export const PREFERRED_POSITION_NAME: Record<PreferredPosition, string> = Object.fromEntries(
+  PREFERRED_POSITIONS.map((p) => [p.code, p.name]),
+) as Record<PreferredPosition, string>;
+
+export interface PreferredPositions {
+  primary: PreferredPosition | null;
+  secondary: PreferredPosition | null;
+  tertiary: PreferredPosition | null;
+}
+
+export interface CharacterProfile {
+  /**
+   * Two trait ids (see data/traits.ts). Slot 0 is positive or neutral, slot 1
+   * negative or neutral. Seeded runs fill these from the seed; custom runs pick
+   * them on the Review step. null = not chosen yet.
+   */
+  traits: [string | null, string | null];
+  /** Free-text blurb about who the character is. */
+  bio: string;
+  positions: PreferredPositions;
+}
+
+export const EMPTY_PROFILE: CharacterProfile = {
+  traits: [null, null],
+  bio: '',
+  positions: { primary: null, secondary: null, tertiary: null },
+};
+
+/** The character's profile, or an empty one for saves that predate the field. */
+export function profileOf(character: { profile?: CharacterProfile }): CharacterProfile {
+  return character.profile ?? EMPTY_PROFILE;
+}
+
+/** "S / OH / MB" style summary of the chosen positions (short codes), '' when none. */
+export function positionCodes(positions: PreferredPositions | undefined | null): string {
+  if (!positions) return '';
+  return [positions.primary, positions.secondary, positions.tertiary]
+    .filter((p): p is PreferredPosition => p !== null)
+    .join(' / ');
+}
+
 // ── Full character ────────────────────────────────────────────────────────────
 
 export interface Character {
@@ -308,6 +366,13 @@ export interface Character {
 
   /** History of level-up events */
   levelUpHistory: LevelUpRecord[];
+
+  /**
+   * Traits, preferred positions and bio (Review step). Optional so saves and
+   * fixtures from before the field existed still type-check; read it through
+   * profileOf() which substitutes EMPTY_PROFILE.
+   */
+  profile?: CharacterProfile;
 
   /** Seeded run: the seed string (null when not a seeded run) */
   seed: string | null;

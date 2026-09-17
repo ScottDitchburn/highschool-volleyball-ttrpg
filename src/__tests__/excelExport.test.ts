@@ -131,16 +131,16 @@ describe('buildCoachWorkbook', () => {
 
   it('roster row has number, position, reaches, ten stats, AP and abilities', () => {
     const roster = sheet(sheets, 'Roster');
-    expect(roster.data[0]).toHaveLength(9 + 10 + 3);
+    expect(roster.data[0]).toHaveLength(10 + 10 + 3);
     const row = roster.data[1].map((c) => c?.value ?? null);
-    expect(row.slice(0, 5)).toEqual([5, 'S', 'Kenma K.', '2nd', 192]);
-    expect(row[5]).toBe(63);
-    expect(row[9 + 9]).toBe(2.5);                 // Stamina (last of the ten stats)
-    expect(row[19]).toBe(16);                     // AP spent
-    expect(row[21]).toContain('Playcalling (Tier II: Oikawa Plays)');
+    expect(row.slice(0, 6)).toEqual([5, 'S', 'Kenma K.', '2nd', '', 192]); // '' = no preferred positions set
+    expect(row[6]).toBe(63);
+    expect(row[10 + 9]).toBe(2.5);                // Stamina (last of the ten stats)
+    expect(row[20]).toBe(16);                     // AP spent
+    expect(row[22]).toContain('Playcalling (Tier II: Oikawa Plays)');
     // Unassigned player: blanks rather than zeros
     expect(roster.data[2][0]).toBeNull();
-    expect(roster.data[2][4]).toBeNull();
+    expect(roster.data[2][5]).toBeNull();
   });
 
   it('lineup sheet lists the six slots and libero', () => {

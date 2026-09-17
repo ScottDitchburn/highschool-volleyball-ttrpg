@@ -2,7 +2,8 @@
 // Reads from useCharacter(); stubs where data is absent.
 import React from 'react';
 import { useCharacter } from '../state/characterStore';
-import { SKILL_STAT_NAMES, formatVerticalModifier } from '../types';
+import { SKILL_STAT_NAMES, formatVerticalModifier, positionCodes, profileOf } from '../types';
+import { traitLabel } from '../data/traits';
 import { cmDual } from '../utils/units';
 
 interface Props {
@@ -49,6 +50,18 @@ export function CharacterSheet({ collapsible = false }: Props) {
           {name || <span className="text-charcoal-500 italic">Unnamed Player</span>}
         </div>
         <div className="text-charcoal-400">{yearLabel}</div>
+        {(() => {
+          const profile = profileOf(character);
+          const traits = profile.traits.map(traitLabel).filter(Boolean).join(' · ');
+          const positions = positionCodes(profile.positions);
+          if (!traits && !positions) return null;
+          return (
+            <div className="text-xs text-charcoal-500 mt-0.5 flex flex-wrap gap-x-2">
+              {traits && <span>{traits}</span>}
+              {positions && <span className="font-mono text-charcoal-400">{positions}</span>}
+            </div>
+          );
+        })()}
         {seeded && seed && (
           <div className="mt-1 inline-flex items-center gap-1 text-[0.65rem] font-mono px-1.5 py-0.5 rounded bg-orange-900/30 text-orange-300 border border-orange-800" title={`Seeded run — seed: ${seed}`}>
             🔒 seed: <span className="truncate max-w-[8rem]">{seed}</span>

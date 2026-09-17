@@ -5,7 +5,8 @@
 
 
 import type { Character, SkillStats, DerivedReaches } from '../types';
-import { SKILL_STAT_NAMES, formatVerticalModifier } from '../types';
+import { SKILL_STAT_NAMES, formatVerticalModifier, positionCodes, profileOf } from '../types';
+import { traitLabel } from '../data/traits';
 import { ABILITY_MAP } from '../data/abilities';
 import { computeAPBudget } from '../engine/apEngine';
 import { cmDual } from '../utils/units';
@@ -65,6 +66,27 @@ export function PrintSheet({ character, effectiveStats, derived }: Props) {
           </div>
         )}
       </div>
+
+      {(() => {
+        const profile = profileOf(character);
+        const traits = profile.traits.map(traitLabel).filter(Boolean).join(', ');
+        const positions = positionCodes(profile.positions);
+        if (!traits && !positions && !profile.bio.trim()) return null;
+        return (
+          <section style={{ marginBottom: '14px' }}>
+            <h2 style={{ fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: '#666', borderBottom: '1px solid #ddd', paddingBottom: '3px', marginBottom: '6px' }}>
+              Player Profile
+            </h2>
+            <div style={{ display: 'flex', gap: '24px', flexWrap: 'wrap', marginBottom: profile.bio.trim() ? '4px' : 0 }}>
+              {traits && <span><span style={{ color: '#555' }}>Traits: </span><strong>{traits}</strong></span>}
+              {positions && <span><span style={{ color: '#555' }}>Positions: </span><strong style={{ fontFamily: 'monospace' }}>{positions}</strong></span>}
+            </div>
+            {profile.bio.trim() && (
+              <p style={{ margin: 0, fontSize: '11px', color: '#333', whiteSpace: 'pre-wrap' }}>{profile.bio.trim()}</p>
+            )}
+          </section>
+        );
+      })()}
 
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
         {/* Left column */}

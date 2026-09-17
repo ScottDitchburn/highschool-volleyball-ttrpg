@@ -10,7 +10,9 @@
 import type { Character } from '../types';
 import { SCHEMA_VERSION, adoptCharacter } from '../state/persistence';
 import { computeEffectiveStats } from '../state/characterStore';
-import type { SkillStats } from '../types';
+import type { SkillStats, CharacterProfile } from '../types';
+import { positionCodes } from '../types';
+import { traitLabel } from '../data/traits';
 import type {
   CloudCharacterRow,
   CloudCharacterSummary,
@@ -109,7 +111,26 @@ export function toSummary(row: CloudCharacterRow): CloudCharacterSummary {
     abilityCount: Array.isArray(abilities) ? abilities.length : 0,
     abilityIds,
     stats: payload ? effectiveStatsOf(row, payload) : null,
+    traits: profileTraits(payload),
+    positions: profilePositions(payload),
   };
+}
+
+function profileOfPayload(payload: Record<string, unknown> | null): Partial<CharacterProfile> | null {
+  const p = payload?.profile;
+  return typeof p === 'object' && p !== null ? (p as Partial<CharacterProfile>) : null;
+}
+
+function profileTraits(payload: Record<string, unknown> | null): string[] {
+  const traits = profileOfPayload(payload)?.traits;
+  if (!Array.isArray(traits)) return [];
+  return traits.map((t) => (typeof t === 'string' ? traitLabel(t) : '')).filter(Boolean);
+}
+
+function profilePositions(payload: Record<string, unknown> | null): string {
+  const positions = profileOfPayload(payload)?.positions;
+  if (typeof positions !== 'object' || positions === null) return '';
+  return positionCodes(positions as CharacterProfile['positions']);
 }
 
 // ── reads ────────────────────────────────────────────────────────────────────

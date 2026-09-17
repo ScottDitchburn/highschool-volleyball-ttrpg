@@ -48,6 +48,8 @@ const COLUMNS: { key: SortKey; label: string; align?: 'right'; title?: string }[
   { key: 'owner', label: 'Owner' },
   { key: 'name', label: 'Character' },
   { key: 'year', label: 'Year' },
+  { key: 'positions', label: 'Pos', title: 'Preferred positions: primary / secondary / tertiary' },
+  { key: 'traits', label: 'Traits' },
   { key: 'height', label: 'Height', align: 'right' },
   { key: 'vertical', label: 'Vertical', align: 'right' },
   ...SKILL_STAT_NAMES.map((stat) => ({
@@ -479,6 +481,8 @@ export function CharactersScreen({ onBack }: Props) {
                         </td>
                         <td className="px-3 py-2 font-semibold text-charcoal-100">{row.name}</td>
                         <td className="px-3 py-2 whitespace-nowrap text-charcoal-300">{row.yearLabel}</td>
+                        <td className="px-3 py-2 whitespace-nowrap font-mono text-charcoal-300">{row.positions || '—'}</td>
+                        <td className="px-3 py-2 whitespace-nowrap text-charcoal-300 text-xs">{row.traits.join(', ') || '—'}</td>
                         <td className="px-3 py-2 text-right font-mono text-charcoal-300">{cm(row.heightCm)}</td>
                         <td className="px-3 py-2 text-right font-mono text-charcoal-300">{cm(row.verticalCm)}</td>
                         {SKILL_STAT_NAMES.map((name) => (
