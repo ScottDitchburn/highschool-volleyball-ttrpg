@@ -1,6 +1,6 @@
 // App.tsx -- Stepped wizard shell with persistent live character-sheet panel.
 // Navigation is internal wizard state; NO router dependency.
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { CharacterProvider, useCharacter } from './state/characterStore';
 import type { Character } from './types';
 import { CoachApp } from './coach/CoachApp';
@@ -40,6 +40,9 @@ function NameEntry({ onStart, onCoach }: { onStart: () => void; onCoach: () => v
   const { character, dispatch } = useCharacter();
   const [seeded, setSeeded] = useState(false);
   const [seed, setSeed] = useState('');
+  // The name the saved character arrived with. Starting under a different
+  // name means a new character, so its cloud bookmark must not carry over.
+  const loadedName = useRef(character.name);
 
   const seedReady = !seeded || seed.trim().length > 0;
   const canStart = character.name.trim().length > 0 && seedReady;
@@ -48,6 +51,8 @@ function NameEntry({ onStart, onCoach }: { onStart: () => void; onCoach: () => v
     if (!canStart) return;
     if (seeded) {
       dispatch({ type: 'START_SEEDED_RUN', seed: seed.trim() });
+    } else if (character.cloudId && character.name.trim() !== loadedName.current.trim()) {
+      dispatch({ type: 'SET_CLOUD_ID', cloudId: null });
     }
     onStart();
   }

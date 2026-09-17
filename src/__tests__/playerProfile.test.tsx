@@ -71,6 +71,13 @@ describe('profile reducer', () => {
     expect(profileOf(after).traits).toEqual(seededTraits('nekoma'));
   });
 
+  it('a seeded run forgets the previous character’s cloud row', () => {
+    const saved = { ...INITIAL_CHARACTER, name: 'Kenma', cloudId: 'row-1' };
+    const seeded = characterReducer(saved, { type: 'START_SEEDED_RUN', seed: 'nekoma' });
+    expect(seeded.cloudId).toBeUndefined();
+    expect(seeded.name).toBe('Kenma'); // the name entered on the landing page stays
+  });
+
   it('a save without a profile still reads as an empty profile', () => {
     const legacy = { ...INITIAL_CHARACTER } as Character;
     delete (legacy as { profile?: unknown }).profile;

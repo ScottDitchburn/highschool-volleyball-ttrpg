@@ -146,7 +146,10 @@ function baseCharacterReducer(state: Character, action: CharacterAction): Charac
         levelUpGains: 0, spent: 0, total, remaining: total,
       };
       const [traitA, traitB] = seededTraits(seed);
-      return {
+      // A seeded run is a brand-new character: forget which cloud row the
+      // previous one was saved to, so the next cloud save inserts rather than
+      // overwriting it.
+      const fresh: Character = {
         ...state,
         seed, seeded: true,
         profile: { ...profileOf(state), traits: [traitA, traitB] },
@@ -163,6 +166,8 @@ function baseCharacterReducer(state: Character, action: CharacterAction): Charac
         selectedAbilities: [],
         levelUpHistory: [],
       };
+      delete fresh.cloudId;
+      return fresh;
     }
 
     case 'SET_PHYSICAL_ROLL_A':

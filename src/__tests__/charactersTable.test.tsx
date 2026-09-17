@@ -360,10 +360,11 @@ describe('CharactersScreen', () => {
     expect(screen.queryByText('Dozy')).toBeNull();
     expect(screen.getByRole('button', { name: /filters \(1\)/i })).toBeTruthy();
 
-    // Require an ability nobody has: nothing matches.
-    fireEvent.change(screen.getByRole('combobox', { name: /ability to require/i }), { target: { value: 'hustle' } });
-    fireEvent.click(screen.getByRole('button', { name: /require ability/i }));
+    // Require an ability nobody has: picking it applies at once, no extra click.
+    fireEvent.change(screen.getByRole('combobox', { name: /require ability/i }), { target: { value: 'hustle' } });
     expect(screen.getByText(/No characters match/)).toBeTruthy();
+    expect(screen.getByRole('button', { name: /filters \(2\)/i })).toBeTruthy();
+    expect(screen.getByRole('button', { name: /stop requiring hustle/i })).toBeTruthy();
     fireEvent.click(screen.getByRole('button', { name: /clear all/i }));
     expect(screen.getByText('Dozy')).toBeTruthy();
   });
