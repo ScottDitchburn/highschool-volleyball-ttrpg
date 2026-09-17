@@ -7,6 +7,8 @@
 // things in: the same seed always yields the same character rolls.
 // ─────────────────────────────────────────────────────────────────────────────
 
+import { FIRST_TRAIT_OPTIONS, SECOND_TRAIT_OPTIONS } from '../data/traits';
+
 /** xmur3 string-hash → seed generator (returns a 32-bit unsigned int each call). */
 function xmur3(str: string): () => number {
   let h = 1779033703 ^ str.length;
@@ -106,6 +108,16 @@ export function seededLevelUpHeight(seed: string, springYear: number): SeededLev
 }
 
 /** Generate a fresh, readable, shareable random seed (e.g. "k3f9-x7q2"). */
+/**
+ * The two traits a seeded run is born with: slot 0 from the positive+neutral
+ * pool, slot 1 from the negative+neutral pool, each an independent seeded draw.
+ */
+export function seededTraits(seed: string): [string, string] {
+  const first = seededDiceFaces(seed, 'trait-0', 1, FIRST_TRAIT_OPTIONS.length)[0] - 1;
+  const second = seededDiceFaces(seed, 'trait-1', 1, SECOND_TRAIT_OPTIONS.length)[0] - 1;
+  return [FIRST_TRAIT_OPTIONS[first].id, SECOND_TRAIT_OPTIONS[second].id];
+}
+
 export function generateRandomSeed(): string {
   const bytes = new Uint32Array(2);
   crypto.getRandomValues(bytes);

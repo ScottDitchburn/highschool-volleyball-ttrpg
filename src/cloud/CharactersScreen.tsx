@@ -14,16 +14,24 @@ import { shortDate } from './format';
 import type { CloudCharacterSummary } from './types';
 import {
   DEFAULT_SORT,
+  EMPTY_FILTER,
+  applyAdvancedFilter,
   filterRows,
+  isFilterEmpty,
   mergeCharacterRows,
   nextSort,
   sortRows,
+  statSortKey,
+  type AdvancedFilter,
   type CharacterTableRow,
   type SortKey,
   type SortSpec,
+  type StatCondition,
   type TableScope,
 } from './tableModel';
-import { requestWizardOnReturn } from '../navigation';
+import { SKILL_STAT_NAMES, type SkillStat } from '../types';
+import { ABILITIES, ABILITY_MAP } from '../data/abilities';
+import { requestJumpToFurthestStep, requestWizardOnReturn } from '../navigation';
 
 interface Props {
   onBack: () => void;
@@ -36,19 +44,174 @@ interface LoadState {
   shared: CloudCharacterSummary[];
 }
 
-const COLUMNS: { key: SortKey; label: string; align?: 'right' }[] = [
+const COLUMNS: { key: SortKey; label: string; align?: 'right'; title?: string }[] = [
   { key: 'owner', label: 'Owner' },
   { key: 'name', label: 'Character' },
   { key: 'year', label: 'Year' },
+  { key: 'positions', label: 'Pos', title: 'Preferred positions: primary / secondary / tertiary' },
+  { key: 'traits', label: 'Traits' },
   { key: 'height', label: 'Height', align: 'right' },
   { key: 'vertical', label: 'Vertical', align: 'right' },
+  ...SKILL_STAT_NAMES.map((stat) => ({
+    key: statSortKey(stat),
+    label: stat === 'Stamina' ? 'Stam' : stat,
+    align: 'right' as const,
+    title: `${stat} (effective, with ability bonuses)`,
+  })),
   { key: 'abilities', label: 'Abilities', align: 'right' },
   { key: 'visibility', label: 'Visibility' },
   { key: 'updated', label: 'Updated' },
 ];
 
+/** Abilities offered in the filter, sorted by name. */
+const ABILITY_OPTIONS = [...ABILITIES].sort((a, b) => a.name.localeCompare(b.name));
+
 function cm(value: number | null): string {
   return value === null ? '—' : `${value.toFixed(0)} cm`;
+}
+
+function stat(value: number | undefined | null): string {
+  return value === undefined || value === null ? '—' : value.toFixed(2);
+}
+
+function abilityNames(ids: string[]): string {
+  return ids.map((id) => ABILITY_MAP[id]?.name ?? id).join(', ');
+}
+
+// ── Advanced filter panel ────────────────────────────────────────────────────
+
+function FilterPanel({
+  filter,
+  onChange,
+}: {
+  filter: AdvancedFilter;
+  onChange: (next: AdvancedFilter) => void;
+}) {
+  const [abilityToAdd, setAbilityToAdd] = useState('');
+
+  const updateCondition = (index: number, patch: Partial<StatCondition>) =>
+    onChange({
+      ...filter,
+      stats: filter.stats.map((c, i) => (i === index ? { ...c, ...patch } : c)),
+    });
+
+  return (
+    <div className="card flex flex-col gap-3" role="group" aria-label="Advanced filters">
+      <div className="flex items-center justify-between">
+        <h3 className="text-xs font-bold uppercase tracking-widest text-charcoal-400">
+          Advanced filters
+        </h3>
+        {!isFilterEmpty(filter) && (
+          <button type="button" onClick={() => onChange(EMPTY_FILTER)} className="text-xs text-charcoal-500 hover:text-orange-400">
+            Clear all
+          </button>
+        )}
+      </div>
+
+      {/* Stat conditions */}
+      <div className="flex flex-col gap-2">
+        <span className="text-xs text-charcoal-500">Stats (every condition must hold)</span>
+        {filter.stats.map((cond, index) => (
+          <div key={index} className="flex flex-wrap items-center gap-2">
+            <select
+              value={cond.stat}
+              onChange={(e) => updateCondition(index, { stat: e.target.value as SkillStat })}
+              aria-label={`Stat for condition ${index + 1}`}
+              className="bg-charcoal-800 border border-charcoal-600 rounded-lg px-2 py-1 text-sm text-charcoal-100"
+            >
+              {SKILL_STAT_NAMES.map((name) => (
+                <option key={name} value={name}>{name}</option>
+              ))}
+            </select>
+            <select
+              value={cond.op}
+              onChange={(e) => updateCondition(index, { op: e.target.value as StatCondition['op'] })}
+              aria-label={`Comparison for condition ${index + 1}`}
+              className="bg-charcoal-800 border border-charcoal-600 rounded-lg px-2 py-1 text-sm text-charcoal-100"
+            >
+              <option value="gte">at least</option>
+              <option value="lte">at most</option>
+            </select>
+            <input
+              type="number"
+              step={0.25}
+              min={1}
+              max={5}
+              value={cond.value}
+              onChange={(e) => updateCondition(index, { value: Number(e.target.value) })}
+              aria-label={`Value for condition ${index + 1}`}
+              className="w-20 bg-charcoal-800 border border-charcoal-600 rounded-lg px-2 py-1 text-sm text-charcoal-100 font-mono"
+            />
+            <button
+              type="button"
+              onClick={() => onChange({ ...filter, stats: filter.stats.filter((_, i) => i !== index) })}
+              className="text-xs text-red-400 hover:text-red-300"
+              aria-label={`Remove condition ${index + 1}`}
+            >
+              Remove
+            </button>
+          </div>
+        ))}
+        <button
+          type="button"
+          onClick={() => onChange({ ...filter, stats: [...filter.stats, { stat: 'Spike', op: 'gte', value: 3 }] })}
+          className="btn-ghost text-xs py-1 px-3 self-start"
+        >
+          + Add stat condition
+        </button>
+      </div>
+
+      {/* Abilities */}
+      <div className="flex flex-col gap-2">
+        <span className="text-xs text-charcoal-500">Abilities (must have every one listed)</span>
+        <div className="flex flex-wrap items-center gap-2">
+          <select
+            value={abilityToAdd}
+            onChange={(e) => setAbilityToAdd(e.target.value)}
+            aria-label="Ability to require"
+            className="bg-charcoal-800 border border-charcoal-600 rounded-lg px-2 py-1 text-sm text-charcoal-100 max-w-[16rem]"
+          >
+            <option value="">Choose an ability…</option>
+            {ABILITY_OPTIONS.filter((a) => !filter.abilityIds.includes(a.id)).map((a) => (
+              <option key={a.id} value={a.id}>{a.name}</option>
+            ))}
+          </select>
+          <button
+            type="button"
+            disabled={abilityToAdd === ''}
+            onClick={() => {
+              if (!abilityToAdd) return;
+              onChange({ ...filter, abilityIds: [...filter.abilityIds, abilityToAdd] });
+              setAbilityToAdd('');
+            }}
+            className="btn-ghost text-xs py-1 px-3 disabled:opacity-40"
+          >
+            + Require ability
+          </button>
+        </div>
+        {filter.abilityIds.length > 0 && (
+          <div className="flex flex-wrap gap-1.5">
+            {filter.abilityIds.map((id) => (
+              <span
+                key={id}
+                className="inline-flex items-center gap-1 text-xs rounded-full border border-orange-700 bg-orange-500/10 text-orange-300 px-2 py-0.5"
+              >
+                {ABILITY_MAP[id]?.name ?? id}
+                <button
+                  type="button"
+                  onClick={() => onChange({ ...filter, abilityIds: filter.abilityIds.filter((x) => x !== id) })}
+                  aria-label={`Stop requiring ${ABILITY_MAP[id]?.name ?? id}`}
+                  className="text-orange-400 hover:text-white leading-none"
+                >
+                  ✕
+                </button>
+              </span>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
 }
 
 export function CharactersScreen({ onBack }: Props) {
@@ -59,6 +222,8 @@ export function CharactersScreen({ onBack }: Props) {
   const [scope, setScope] = useState<TableScope>('all');
   const [sort, setSort] = useState<SortSpec>(DEFAULT_SORT);
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [filter, setFilter] = useState<AdvancedFilter>(EMPTY_FILTER);
+  const [filtersOpen, setFiltersOpen] = useState(false);
 
   const signedIn = auth.userId !== null;
 
@@ -90,9 +255,10 @@ export function CharactersScreen({ onBack }: Props) {
     [state.mine, state.shared, auth.displayName],
   );
   const visible = useMemo(
-    () => sortRows(filterRows(rows, query, scope), sort),
-    [rows, query, scope, sort],
+    () => sortRows(applyAdvancedFilter(filterRows(rows, query, scope), filter), sort),
+    [rows, query, scope, filter, sort],
   );
+  const activeFilterCount = filter.stats.length + filter.abilityIds.length;
 
   const handleLoad = async (row: CharacterTableRow) => {
     if (!auth.client) return;
@@ -110,6 +276,7 @@ export function CharactersScreen({ onBack }: Props) {
     }
     dispatch({ type: 'IMPORT_CHARACTER', character: result.value });
     requestWizardOnReturn();
+    requestJumpToFurthestStep();
     onBack();
   };
 
@@ -223,6 +390,16 @@ export function CharactersScreen({ onBack }: Props) {
               </div>
               <button
                 type="button"
+                onClick={() => setFiltersOpen((v) => !v)}
+                aria-expanded={filtersOpen}
+                className={`text-xs font-bold uppercase tracking-wider py-1.5 px-3 rounded-lg border transition-colors ${
+                  activeFilterCount > 0 ? 'bg-orange-600 border-orange-500 text-white' : 'btn-ghost'
+                }`}
+              >
+                Filters{activeFilterCount > 0 ? ` (${activeFilterCount})` : ''}
+              </button>
+              <button
+                type="button"
                 onClick={() => void refresh()}
                 disabled={state.loading}
                 className="btn-ghost text-xs py-1.5 px-3 disabled:opacity-40"
@@ -230,6 +407,8 @@ export function CharactersScreen({ onBack }: Props) {
                 Refresh
               </button>
             </div>
+
+            {filtersOpen && <FilterPanel filter={filter} onChange={setFilter} />}
 
             {!signedIn && (
               <p className="text-charcoal-500 text-xs">
@@ -262,6 +441,7 @@ export function CharactersScreen({ onBack }: Props) {
                           type="button"
                           onClick={() => setSort((s) => nextSort(s, col.key))}
                           className="hover:text-orange-400"
+                          title={col.title}
                         >
                           {col.label}
                           {sortIndicator(col.key)}
@@ -285,7 +465,7 @@ export function CharactersScreen({ onBack }: Props) {
                       <td colSpan={COLUMNS.length + 1} className="px-3 py-6 text-charcoal-500 italic">
                         {rows.length === 0
                           ? 'No characters yet. Save one to the cloud from the Review step.'
-                          : 'No characters match that search.'}
+                          : 'No characters match that search or those filters.'}
                       </td>
                     </tr>
                   ) : (
@@ -301,9 +481,21 @@ export function CharactersScreen({ onBack }: Props) {
                         </td>
                         <td className="px-3 py-2 font-semibold text-charcoal-100">{row.name}</td>
                         <td className="px-3 py-2 whitespace-nowrap text-charcoal-300">{row.yearLabel}</td>
+                        <td className="px-3 py-2 whitespace-nowrap font-mono text-charcoal-300">{row.positions || '—'}</td>
+                        <td className="px-3 py-2 whitespace-nowrap text-charcoal-300 text-xs">{row.traits.join(', ') || '—'}</td>
                         <td className="px-3 py-2 text-right font-mono text-charcoal-300">{cm(row.heightCm)}</td>
                         <td className="px-3 py-2 text-right font-mono text-charcoal-300">{cm(row.verticalCm)}</td>
-                        <td className="px-3 py-2 text-right font-mono text-charcoal-300">{row.abilityCount}</td>
+                        {SKILL_STAT_NAMES.map((name) => (
+                          <td key={name} className="px-2 py-2 text-right font-mono text-charcoal-300">
+                            {stat(row.stats?.[name])}
+                          </td>
+                        ))}
+                        <td
+                          className="px-3 py-2 text-right font-mono text-charcoal-300"
+                          title={row.abilityIds.length ? abilityNames(row.abilityIds) : undefined}
+                        >
+                          {row.abilityCount}
+                        </td>
                         <td className="px-3 py-2 whitespace-nowrap">
                           {row.source === 'mine' ? (
                             <label className="flex items-center gap-1.5 text-xs text-charcoal-400 cursor-pointer select-none">

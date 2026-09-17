@@ -6,7 +6,8 @@
 // the main bundle does not carry the xlsx writer until the button is pressed.
 
 import type { Character, SkillStats, DerivedReaches } from '../types';
-import { SKILL_STAT_NAMES, formatVerticalModifier } from '../types';
+import { SKILL_STAT_NAMES, formatVerticalModifier, PREFERRED_POSITION_NAME, profileOf } from '../types';
+import { traitLabel } from '../data/traits';
 import { ABILITY_MAP } from '../data/abilities';
 import { computeAPBudget } from '../engine/apEngine';
 import { cumulativeCost } from '../engine/prereqEngine';
@@ -80,6 +81,17 @@ function summarySheet(
   kv('Graduated', bool(character.graduated === true));
   kv('Seeded Run', bool(character.seeded));
   if (character.seeded && character.seed) kv('Seed', text(character.seed));
+
+  const profile = profileOf(character);
+  rows.push([]);
+  rows.push(header('Profile', ''));
+  kv('Trait 1', text(traitLabel(profile.traits[0])));
+  kv('Trait 2', text(traitLabel(profile.traits[1])));
+  const posText = (code: string | null) => (code ? `${code} (${PREFERRED_POSITION_NAME[code as keyof typeof PREFERRED_POSITION_NAME] ?? code})` : '');
+  kv('Primary Position', text(posText(profile.positions.primary)));
+  kv('Secondary Position', text(posText(profile.positions.secondary)));
+  kv('Tertiary Position', text(posText(profile.positions.tertiary)));
+  kv('Bio', { value: profile.bio, type: String, wrap: true });
 
   rows.push([]);
   rows.push(header('Physical', ''));

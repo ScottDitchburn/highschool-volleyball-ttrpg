@@ -5,6 +5,7 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 import type { CloudCharacterSummary } from './types';
+import type { SkillStat } from '../types';
 import { yearBadge } from './format';
 
 export type RowSource = 'mine' | 'public';
@@ -28,7 +29,55 @@ export type SortKey =
   | 'vertical'
   | 'abilities'
   | 'visibility'
-  | 'updated';
+  | 'updated'
+  | 'positions'
+  | 'traits'
+  | `stat:${SkillStat}`;
+
+/** Sort key for one of the ten stat columns. */
+export function statSortKey(stat: SkillStat): SortKey {
+  return `stat:${stat}`;
+}
+
+// ── advanced filter ──────────────────────────────────────────────────────────
+
+export type StatOp = 'gte' | 'lte';
+
+export interface StatCondition {
+  stat: SkillStat;
+  op: StatOp;
+  value: number;
+}
+
+export interface AdvancedFilter {
+  /** Every condition must hold (AND). Rows with unreadable stats never match a condition. */
+  stats: StatCondition[];
+  /** Every listed ability id must be purchased (AND). */
+  abilityIds: string[];
+}
+
+export const EMPTY_FILTER: AdvancedFilter = { stats: [], abilityIds: [] };
+
+export function isFilterEmpty(filter: AdvancedFilter): boolean {
+  return filter.stats.length === 0 && filter.abilityIds.length === 0;
+}
+
+/** Keep rows satisfying every stat condition and owning every listed ability. */
+export function applyAdvancedFilter(rows: CharacterTableRow[], filter: AdvancedFilter): CharacterTableRow[] {
+  if (isFilterEmpty(filter)) return rows;
+  return rows.filter((row) => {
+    for (const cond of filter.stats) {
+      const value = row.stats?.[cond.stat];
+      if (value === undefined || value === null) return false;
+      if (cond.op === 'gte' && value < cond.value - 1e-9) return false;
+      if (cond.op === 'lte' && value > cond.value + 1e-9) return false;
+    }
+    for (const id of filter.abilityIds) {
+      if (!row.abilityIds.includes(id)) return false;
+    }
+    return true;
+  });
+}
 
 export interface SortSpec {
   key: SortKey;
@@ -88,7 +137,9 @@ export function filterRows(
     return (
       row.ownerLabel.toLowerCase().includes(q) ||
       row.name.toLowerCase().includes(q) ||
-      row.yearLabel.toLowerCase().includes(q)
+      row.yearLabel.toLowerCase().includes(q) ||
+      row.positions.toLowerCase().includes(q) ||
+      row.traits.some((t) => t.toLowerCase().includes(q))
     );
   });
 }
@@ -141,11 +192,22 @@ export function sortRows(rows: CharacterTableRow[], sort: SortSpec): CharacterTa
         if (fixed === null) cmp = (a.verticalCm as number) - (b.verticalCm as number);
         break;
       case 'abilities':  cmp = a.abilityCount - b.abilityCount; break;
+      case 'positions':  cmp = compareStrings(a.positions, b.positions); break;
+      case 'traits':     cmp = compareStrings(a.traits.join(', '), b.traits.join(', ')); break;
       case 'visibility': cmp = Number(a.isPublic) - Number(b.isPublic); break;
       case 'updated':
         fixed = nullsLast(a.updatedAt, b.updatedAt);
         if (fixed === null) cmp = compareIso(a.updatedAt as string, b.updatedAt as string);
         break;
+      default: {
+        if (sort.key.startsWith('stat:')) {
+          const stat = sort.key.slice(5) as SkillStat;
+          const va = a.stats?.[stat] ?? null;
+          const vb = b.stats?.[stat] ?? null;
+          fixed = nullsLast(va, vb);
+          if (fixed === null) cmp = (va as number) - (vb as number);
+        }
+      }
     }
     if (fixed !== null && fixed !== 0) return fixed;
     if (cmp !== 0) return cmp * sign;

@@ -821,6 +821,7 @@ export const ABILITIES: Ability[] = [
       {
         kind: 'optionChoice',
         prompt: 'Choose one of the following',
+        distinctPerPurchase: true,
         options: [
           {
             id: 'spin',
@@ -840,8 +841,8 @@ export const ABILITIES: Ability[] = [
     notes:
       'New in v.3. 4 AP, prereq Stamina 3.25+. The source lists no "(N)"; per the ' +
       'rules-owner decision the ability may be purchased at most twice (maxTimes 2), ' +
-      'and each purchase records one of the two options — the two purchases may pick ' +
-      'the same option or different ones. Both options are narrative only (no stat or ' +
+      'and each purchase records one of the two options — the two purchases must pick ' +
+      'DIFFERENT options (distinctPerPurchase). Both options are narrative only (no stat or ' +
       'reach effect), but the recorded pick is shown on Review, the print sheet and the ' +
       'Discord export.',
   },

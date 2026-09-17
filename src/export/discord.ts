@@ -2,7 +2,8 @@
 // Build a Discord-friendly triple-backtick code block from a character.
 
 import type { Character, SkillStats, DerivedReaches } from '../types';
-import { SKILL_STAT_NAMES, formatVerticalModifier } from '../types';
+import { SKILL_STAT_NAMES, formatVerticalModifier, positionCodes, profileOf } from '../types';
+import { traitLabel } from '../data/traits';
 import { ABILITY_MAP } from '../data/abilities';
 import { computeAPBudget } from '../engine/apEngine';
 import { cmDual } from '../utils/units';
@@ -65,6 +66,19 @@ export function buildDiscordExport(
     lines.push(
       `  Vertical Jump: ${cmDual(p.verticalCm, 0)} (mod ${formatVerticalModifier(p.verticalModifier)})`,
     );
+  }
+  // Profile: traits, preferred positions (short codes), bio
+  const profile = profileOf(character);
+  const traits = profile.traits.map(traitLabel).filter(Boolean);
+  const positions = positionCodes(profile.positions);
+  if (traits.length > 0 || positions) {
+    lines.push('──────────────────────────────────────');
+    if (traits.length > 0) lines.push(`  ${pad('Traits')}${traits.join(', ')}`);
+    if (positions) lines.push(`  ${pad('Positions')}${positions}`);
+  }
+  if (profile.bio.trim()) {
+    const bio = profile.bio.trim().replace(/\s+/g, ' ');
+    lines.push(`  ${pad('Bio')}${bio.length > 160 ? bio.slice(0, 157) + '…' : bio}`);
   }
   lines.push('──────────────────────────────────────');
 

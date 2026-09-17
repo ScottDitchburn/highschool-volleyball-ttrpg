@@ -256,9 +256,11 @@ export function evaluateAbility(
 
   // needsChooser: true if ANY existing instance is missing a required chooser
   // selection (a statDelta chooser or an unresolved "choose one of the following").
-  const needsChooser = character.selectedAbilities
-    .filter((s) => s.abilityId === ability.id)
-    .some((inst) => instanceNeedsChooser(ability.effects, inst.chooserSelections));
+  const copies = character.selectedAbilities.filter((s) => s.abilityId === ability.id);
+  const needsChooser = copies.some((inst, i) =>
+    // Earlier copies keep their pick; a later copy that duplicates one is the one owing a choice.
+    instanceNeedsChooser(ability.effects, inst.chooserSelections, copies.slice(0, i)),
+  );
 
   return {
     prereqResults,

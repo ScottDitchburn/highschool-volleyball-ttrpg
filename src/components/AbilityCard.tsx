@@ -6,6 +6,7 @@
 import type { Ability, AbilityOption, ChooseSpec, SelectedAbility, SkillStat } from '../types';
 import { SKILL_STAT_NAMES } from '../types';
 import type { AbilityEvaluation, PrereqResult } from '../engine/prereqEngine';
+import { takenOptionIds } from '../engine/effects';
 import { cumulativeCost } from '../engine/prereqEngine';
 import { toRomanNumeral } from '../utils/roman';
 
@@ -209,6 +210,7 @@ export function AbilityCard({
           key={inst.uid}
           ability={ability}
           instance={inst}
+          siblings={instances.filter((other) => other.uid !== inst.uid)}
           instanceIndex={instIdx}
           totalInstances={purchaseCount}
           apRemaining={apRemaining}
@@ -229,6 +231,8 @@ export function AbilityCard({
 interface InstanceControlsProps {
   ability: Ability;
   instance: SelectedAbility;
+  /** The other purchased copies of this ability (for distinct-per-purchase choosers). */
+  siblings: SelectedAbility[];
   instanceIndex: number;
   totalInstances: number;
   apRemaining: number;
@@ -240,6 +244,7 @@ interface InstanceControlsProps {
 function InstanceControls({
   ability,
   instance,
+  siblings,
   instanceIndex,
   totalInstances,
   apRemaining,
@@ -290,11 +295,16 @@ function InstanceControls({
 
         // "Choose one of the following" — Weight Lifting, Flexibility
         if (effect.kind === 'optionChoice') {
+          // Flexibility: an option another copy already took cannot be chosen again.
+          const taken = effect.distinctPerPurchase
+            ? takenOptionIds(effect, effectIndex, siblings)
+            : new Set<string>();
           return (
             <OptionSelector
               key={effectIndex}
               prompt={effect.prompt}
               options={effect.options}
+              takenIds={taken}
               currentChoice={typeof currentChoice === 'string' ? currentChoice : undefined}
               onChange={(optionId) => onChooserChange(effectIndex, optionId)}
             />
@@ -487,12 +497,16 @@ function ChooserSelector({
 interface OptionSelectorProps {
   prompt: string;
   options: AbilityOption[];
+  /** Options another purchased copy has already recorded (disabled here). */
+  takenIds?: Set<string>;
   currentChoice: string | undefined;
   onChange: (optionId: string) => void;
 }
 
-function OptionSelector({ prompt, options, currentChoice, onChange }: OptionSelectorProps) {
+function OptionSelector({ prompt, options, takenIds, currentChoice, onChange }: OptionSelectorProps) {
   const chosen = options.find((o) => o.id === currentChoice);
+  // A pick that duplicates another copy's is shown, but flagged, so the player fixes it.
+  const duplicate = chosen !== undefined && takenIds?.has(chosen.id) === true;
 
   return (
     <div className="flex flex-col gap-1.5 bg-charcoal-800/50 rounded-lg p-2">
@@ -500,16 +514,20 @@ function OptionSelector({ prompt, options, currentChoice, onChange }: OptionSele
       <div className="flex flex-wrap gap-1">
         {options.map((option) => {
           const isChosen = option.id === currentChoice;
+          const isTaken = takenIds?.has(option.id) === true;
           return (
             <button
               key={option.id}
               onClick={() => onChange(option.id)}
-              title={option.detail ?? option.label}
+              disabled={isTaken && !isChosen}
+              title={isTaken ? 'Already taken by another purchase of this ability' : (option.detail ?? option.label)}
               aria-pressed={isChosen}
               className={`text-xs px-2 py-0.5 rounded border transition-colors
                 ${isChosen
                   ? 'border-orange-500 bg-orange-500/20 text-orange-300 font-bold'
-                  : 'border-charcoal-600 text-charcoal-300 hover:border-orange-500 hover:text-orange-400'
+                  : isTaken
+                    ? 'border-charcoal-800 text-charcoal-600 line-through cursor-not-allowed'
+                    : 'border-charcoal-600 text-charcoal-300 hover:border-orange-500 hover:text-orange-400'
                 }`}
             >
               {option.label}
@@ -517,6 +535,11 @@ function OptionSelector({ prompt, options, currentChoice, onChange }: OptionSele
           );
         })}
       </div>
+      {duplicate && (
+        <p className="text-xs text-red-400" role="alert">
+          Another purchase already took this option — choose a different one.
+        </p>
+      )}
       {chosen?.detail && (
         <p className="text-xs text-charcoal-500 leading-relaxed">{chosen.detail}</p>
       )}

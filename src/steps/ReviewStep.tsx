@@ -10,6 +10,7 @@ import { LevelUpModal } from '../components/LevelUpModal';
 import { PrintSheet } from '../export/PrintSheet';
 import { buildDiscordExport } from '../export/discord';
 import { downloadCharacterExcel } from '../export/excel';
+import { PlayerProfileCard } from '../components/PlayerProfileCard';
 import { cmDual } from '../utils/units';
 import { choiceLabels } from '../utils/abilityChoices';
 import { SkillRadar } from '../charts/SkillRadar';
@@ -251,6 +252,9 @@ export function ReviewStep() {
             )}
           </div>
         </div>
+
+        {/* ── Player profile: traits, positions, bio ── */}
+        <PlayerProfileCard />
 
         {/* Main grid: 2 columns on md+ */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

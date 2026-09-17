@@ -274,7 +274,7 @@ Prereqs evaluate against the floored value.
 
 ### Flexibility (id: `flexibility`) — new in v.3
 **Source text:** "Flexibility: Cost: 4 AP Prereq: Stamina 3.25+  Your dedication to stretches allow you to control your body in opportune ways. Choose one of the following:  You inflict major spin on every spike and serve, causing it to bounce and curve widely. / You are able to rotate your core and shoulders midair, opening up new hitting angles."
-**Interpretation:** 4 AP, prereq `{stat:'Stamina', min:3.25}`. The source lists **no "(N)"**; per the rules owner this ability is capped at **two purchases** (`maxTimes: 2`) and each purchase records one of the two options — the two purchases may pick the same option or different ones. Encoded as an `optionChoice` whose options (`spin`, `midair-rotation`) carry **no effects**: both are narrative only, with the source sentence stored in each option's `detail` for the card tooltip and print sheet. The recorded pick is shown on the ability card, Review, print sheet, Discord export and coach roster.
+**Interpretation:** 4 AP, prereq `{stat:'Stamina', min:3.25}`. The source lists **no "(N)"**; per the rules owner this ability is capped at **two purchases** (`maxTimes: 2`) and each purchase records one of the two options — and the two purchases must pick **different** options (`distinctPerPurchase: true`; rules-owner bug report 2026-09-16: an option already taken by one copy is greyed out on the other, and a duplicate pick from an older save is flagged as an unresolved choice). Encoded as an `optionChoice` whose options (`spin`, `midair-rotation`) carry **no effects**: both are narrative only, with the source sentence stored in each option's `detail` for the card tooltip and print sheet. The recorded pick is shown on the ability card, Review, print sheet, Discord export and coach roster.
 **Date logged:** 2026-09-16
 
 ---
@@ -317,3 +317,17 @@ Prereqs evaluate against the floored value.
 ### Abilities with no maxTimes (v.3 revision)
 Unchanged from the v.2 list above, with these additions: **Rest** is uncapped (`repeatable: true`, no "(N)" in the source); **Weight Lifting** and **Game Study** are `maxTimes: 3` from their "(3)"; **Flexibility** is `maxTimes: 2` by rules-owner decision despite no "(N)"; **Playcalling** has no "(N)" and is a single purchase like the other tiered abilities.
 **Date logged:** 2026-09-16
+
+---
+
+### Personality traits (data: `src/data/traits.ts`)
+**Source:** rules-owner list supplied 2026-09-17 (not in the v.3 rules doc). Neutral: Serious, Goofball, Aggressive, Conservative, Sly, Bored, Quiet, Loud, Obedient, Mood Swingy, Wealthy. Positive: Calm, Nonchalant, Cheerful, Energetic, Honorable, Happy, Excited, Inspiring, Confident, Motivated, Upbringing, Attractive, Competitive, Attentive, Wholesome, Supportive, Trusting. Negative: Angry, Emo, Anxious, Egotistical, Mean, Cocky, Gloomy, Creepy, Haughty, Lazy, Crazy, Unconfident, Unmotivated, Unattractive, Clumsy, Awkward, Jealous, Demanding.
+**Interpretation:** every character has two traits (`profile.traits`): slot 1 is positive **or** neutral, slot 2 negative **or** neutral (both neutral allowed). Seeded runs draw each slot from the seed (`seededTraits`, independent streams `trait-0` / `trait-1`) and show them locked; custom runs pick them on the Review step. Three source spellings were normalised: "Aggresive" → Aggressive, "Conservitive" → Conservative, "Obediant" → Obedient. Trait ids are the kebab-cased labels. "Upbringing" is kept verbatim as a positive trait.
+**Date logged:** 2026-09-17
+
+---
+
+### Preferred positions and bio (`profile.positions`, `profile.bio`)
+**Source:** rules-owner request 2026-09-17. Positions: Setter (S), Outside Hitter (OH), Opposite Hitter (OPP), Middle Blocker (MB), Libero (Li), Bench Sitter (BS), Pinch Server (PS).
+**Interpretation:** primary / secondary / tertiary dropdowns on the Review step show the full names; every other surface (live sheet, Characters table, Discord, print, Excel, coach roster) uses the short codes as "S / OH / MB". A position already chosen in one rank is not offered in the others. Bio is free text, capped at 600 characters; Discord truncates it to one line. This position list is separate from the coach mode's roster positions (WS/OP/S/MB/Li), which describe the coach's assignment rather than the player's preference. `Character.profile` is optional in the type so pre-existing saves load unchanged (read via `profileOf()`).
+**Date logged:** 2026-09-17
