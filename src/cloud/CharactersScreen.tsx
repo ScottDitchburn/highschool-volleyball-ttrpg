@@ -507,7 +507,7 @@ export function CharactersScreen({ onBack }: Props) {
                                 className="w-3.5 h-3.5 accent-orange-500"
                                 aria-label={`Make ${row.name} public`}
                               />
-                              {row.isPublic ? 'Public' : 'Private'}
+                              Public
                             </label>
                           ) : (
                             <span className="text-xs text-charcoal-500">Public</span>
