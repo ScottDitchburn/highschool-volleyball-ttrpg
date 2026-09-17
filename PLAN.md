@@ -272,3 +272,13 @@ the way in. Unlimited characters per user — no quota logic anywhere.
 the engine ignores it, persistence carries it, saving with one set updates that
 row and saving without one inserts a new row. Loading a public character that
 is not yours strips `cloudId`, so the first save makes a copy of your own.
+
+**Bulk upload.** The signed-in Cloud menu has a *Bulk upload* panel
+(`src/cloud/bulkImport.ts` + `BulkUploadPanel` in `CloudWidget.tsx`) for moving
+a pile of old saves into an account at once. It takes any number of JSON files
+and accepts builder exports, coach backups (every roster player), bare
+character objects, or a JSON array of any of those. Each character goes through
+`adoptCharacter` (same migrations as the single-file import), has any `cloudId`
+stripped, and is inserted as a new private row, one save at a time, with a
+per-file skip list and a per-character success/failure summary. The character
+being built in the wizard is never touched.

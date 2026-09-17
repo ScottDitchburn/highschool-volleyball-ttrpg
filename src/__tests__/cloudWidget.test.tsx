@@ -231,3 +231,56 @@ describe('Review step public toggle', () => {
     expect(update?.filters).toEqual([{ column: 'id', value: 'row-1' }]);
   });
 });
+
+describe('CloudWidget bulk upload', () => {
+  it('uploads every character from the chosen files as new rows for the signed-in user', async () => {
+    configure();
+    const auth = makeFakeAuth(fakeSession('user-1'));
+    let inserted = 0;
+    const db = makeFakeDb((call) => {
+      if (call.table === 'profiles') return { data: { id: 'user-1', username: 'ninja_shoyo', avatar_url: null }, error: null };
+      if (call.op === 'insert') {
+        inserted += 1;
+        return { data: { id: `row-${inserted}` }, error: null };
+      }
+      return emptyRows();
+    }, auth.auth);
+    setCloudClientForTests(db.client);
+    const { INITIAL_CHARACTER } = await import('../state/characterStore');
+    const { SCHEMA_VERSION } = await import('../state/persistence');
+
+    renderWidget();
+    const trigger = await screen.findByRole('button', { name: /ninja_shoyo/i });
+    await act(async () => {
+      fireEvent.click(trigger);
+    });
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: /bulk upload/i }));
+    });
+    expect(screen.getByRole('heading', { name: /bulk upload/i })).toBeTruthy();
+
+    const files = [
+      new File([JSON.stringify({ version: SCHEMA_VERSION, character: { ...INITIAL_CHARACTER, name: 'Hinata' } })], 'hinata.json', { type: 'application/json' }),
+      new File([JSON.stringify({ version: 1, coach: { roster: [{ id: 'r1', character: { ...INITIAL_CHARACTER, name: 'Kageyama' } }] } })], 'team.json', { type: 'application/json' }),
+      new File(['nope'], 'broken.json', { type: 'application/json' }),
+    ];
+    const input = screen.getByLabelText(/character files/i) as HTMLInputElement;
+    await act(async () => {
+      fireEvent.change(input, { target: { files } });
+    });
+
+    await screen.findByText(/2 characters ready to upload/i);
+    expect(screen.getByText(/1 entry was skipped/i)).toBeTruthy();
+    expect(screen.getByText(/broken\.json: not valid JSON/i)).toBeTruthy();
+    expect(db.calls.filter((c) => c.op === 'insert')).toHaveLength(0); // nothing sent until confirmed
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: /^upload 2$/i }));
+    });
+
+    await screen.findByText(/2 uploaded\./i);
+    const inserts = db.calls.filter((c) => c.op === 'insert');
+    expect(inserts.map((c) => c.values?.name)).toEqual(['Hinata', 'Kageyama']);
+    expect(inserts.every((c) => c.values?.owner_id === 'user-1' && c.values?.is_public === false)).toBe(true);
+  });
+});
