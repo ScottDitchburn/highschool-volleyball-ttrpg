@@ -87,7 +87,6 @@ function FilterPanel({
   filter: AdvancedFilter;
   onChange: (next: AdvancedFilter) => void;
 }) {
-  const [abilityToAdd, setAbilityToAdd] = useState('');
 
   const updateCondition = (index: number, patch: Partial<StatCondition>) =>
     onChange({
@@ -165,29 +164,24 @@ function FilterPanel({
       <div className="flex flex-col gap-2">
         <span className="text-xs text-charcoal-500">Abilities (must have every one listed)</span>
         <div className="flex flex-wrap items-center gap-2">
+          {/* Picking an ability applies it at once; the select snaps back so
+              the next pick is another requirement. */}
           <select
-            value={abilityToAdd}
-            onChange={(e) => setAbilityToAdd(e.target.value)}
-            aria-label="Ability to require"
+            value=""
+            onChange={(e) => {
+              const id = e.target.value;
+              if (id && !filter.abilityIds.includes(id)) {
+                onChange({ ...filter, abilityIds: [...filter.abilityIds, id] });
+              }
+            }}
+            aria-label="Require ability"
             className="bg-charcoal-800 border border-charcoal-600 rounded-lg px-2 py-1 text-sm text-charcoal-100 max-w-[16rem]"
           >
-            <option value="">Choose an ability…</option>
+            <option value="">+ Require ability…</option>
             {ABILITY_OPTIONS.filter((a) => !filter.abilityIds.includes(a.id)).map((a) => (
               <option key={a.id} value={a.id}>{a.name}</option>
             ))}
           </select>
-          <button
-            type="button"
-            disabled={abilityToAdd === ''}
-            onClick={() => {
-              if (!abilityToAdd) return;
-              onChange({ ...filter, abilityIds: [...filter.abilityIds, abilityToAdd] });
-              setAbilityToAdd('');
-            }}
-            className="btn-ghost text-xs py-1 px-3 disabled:opacity-40"
-          >
-            + Require ability
-          </button>
         </div>
         {filter.abilityIds.length > 0 && (
           <div className="flex flex-wrap gap-1.5">

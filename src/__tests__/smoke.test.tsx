@@ -198,6 +198,44 @@ describe('App root', () => {
     // Wizard step indicator should be visible
     expect(screen.getByRole('navigation', { name: /wizard steps/i })).toBeTruthy();
   });
+
+  it('starting under a new name forgets the saved character’s cloud row', async () => {
+    localStorage.clear();
+    seedCharacter({ ...FULL_CHARACTER, name: 'Hinata', cloudId: 'row-1' });
+    render(<App />);
+
+    const input = screen.getByPlaceholderText(/player's name/i);
+    await act(async () => {
+      fireEvent.change(input, { target: { value: 'Kageyama' } });
+    });
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: /start building/i }));
+    });
+
+    // The next autosave (debounced) must carry no cloudId.
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 700));
+    });
+    const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) ?? '{}');
+    expect(saved.character.name).toBe('Kageyama');
+    expect(saved.character.cloudId).toBeUndefined();
+    localStorage.clear();
+  });
+
+  it('starting under the same name keeps the cloud row', async () => {
+    localStorage.clear();
+    seedCharacter({ ...FULL_CHARACTER, name: 'Hinata', cloudId: 'row-1' });
+    render(<App />);
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: /start building/i }));
+    });
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 700));
+    });
+    const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) ?? '{}');
+    expect(saved.character.cloudId).toBe('row-1');
+    localStorage.clear();
+  });
 });
 
 // ─── Test 2: Each step renders without crashing ───────────────────────────────
