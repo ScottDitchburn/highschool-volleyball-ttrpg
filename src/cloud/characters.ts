@@ -9,6 +9,8 @@
 
 import type { Character } from '../types';
 import { SCHEMA_VERSION, adoptCharacter } from '../state/persistence';
+import { computeEffectiveStats } from '../state/characterStore';
+import type { SkillStats } from '../types';
 import type {
   CloudCharacterRow,
   CloudCharacterSummary,
@@ -68,11 +70,31 @@ function numberAt(obj: unknown, key: string): number | null {
   return typeof value === 'number' && Number.isFinite(value) ? value : null;
 }
 
+/**
+ * Effective stats of a stored payload, computed exactly as the builder does
+ * (migration + ability effects). Null when the payload is not a usable
+ * character or its skills are unassigned.
+ */
+function effectiveStatsOf(row: CloudCharacterRow, payload: Record<string, unknown>): SkillStats | null {
+  const version = typeof row.schema_version === 'number' ? row.schema_version : SCHEMA_VERSION;
+  try {
+    const adopted = adoptCharacter(JSON.parse(JSON.stringify(payload)) as unknown, version, 'row');
+    return adopted.ok ? computeEffectiveStats(adopted.character) : null;
+  } catch {
+    return null;
+  }
+}
+
 export function toSummary(row: CloudCharacterRow): CloudCharacterSummary {
   const payload = payloadOf(row);
   const year = payload && typeof payload.schoolYear === 'number' ? payload.schoolYear : null;
   const physical = payload?.physical ?? null;
   const abilities = payload?.selectedAbilities;
+  const abilityIds = Array.isArray(abilities)
+    ? abilities
+        .map((a) => (typeof a === 'object' && a !== null ? (a as Record<string, unknown>).abilityId : null))
+        .filter((id): id is string => typeof id === 'string')
+    : [];
   return {
     id: row.id,
     name: row.name || 'Unnamed Player',
@@ -85,6 +107,8 @@ export function toSummary(row: CloudCharacterRow): CloudCharacterSummary {
     heightCm: numberAt(physical, 'heightCm'),
     verticalCm: numberAt(physical, 'verticalCm'),
     abilityCount: Array.isArray(abilities) ? abilities.length : 0,
+    abilityIds,
+    stats: payload ? effectiveStatsOf(row, payload) : null,
   };
 }
 
@@ -257,6 +281,16 @@ export async function remove(client: CloudClient, id: string): Promise<CloudOutc
   );
   if (!result.ok) return result;
   return { ok: true, value: true };
+}
+
+/** Whether one of the caller's characters is currently public (null if not found). */
+export async function getPublic(client: CloudClient, id: string): Promise<CloudOutcome<boolean | null>> {
+  const result = await run(
+    client.from<CloudCharacterRow>(CHARACTERS_TABLE).select('id, is_public').eq('id', id).maybeSingle(),
+    'Could not read who can see that character.',
+  );
+  if (!result.ok) return result;
+  return { ok: true, value: result.value ? result.value.is_public === true : null };
 }
 
 /** Flip the per-character public flag. */

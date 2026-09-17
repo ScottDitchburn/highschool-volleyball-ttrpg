@@ -66,6 +66,8 @@ describe('CloudWidget', () => {
     renderWidget();
 
     const button = await screen.findByRole('button', { name: /sign in with discord/i });
+    // Disabled until getSession() settles; clicking earlier is a no-op.
+    await waitFor(() => expect((button as HTMLButtonElement).disabled).toBe(false));
     await act(async () => {
       fireEvent.click(button);
     });
@@ -177,5 +179,55 @@ describe('landing page cloud control', () => {
     });
     expect(screen.getByRole('button', { name: /my characters/i })).toBeTruthy();
     expect(screen.getByRole('button', { name: /sign out/i })).toBeTruthy();
+  });
+});
+
+describe('Review step public toggle', () => {
+  it('shows the saved character’s visibility and flips it', async () => {
+    configure();
+    const auth = makeFakeAuth(fakeSession('user-1'));
+    let isPublic = false;
+    const db = makeFakeDb((call) => {
+      if (call.table === 'profiles') return { data: { id: 'user-1', username: 'ninja_shoyo', avatar_url: null }, error: null };
+      if (call.table === 'characters' && call.op === 'select' && call.single) {
+        return { data: { id: 'row-1', is_public: isPublic }, error: null };
+      }
+      if (call.table === 'characters' && call.op === 'update') {
+        isPublic = call.values?.is_public === true;
+        return { data: null, error: null };
+      }
+      return emptyRows();
+    }, auth.auth);
+    setCloudClientForTests(db.client);
+
+    const { CloudSaveButton } = await import('../cloud/CloudSaveButton');
+    const { INITIAL_CHARACTER } = await import('../state/characterStore');
+    const { STORAGE_KEY, SCHEMA_VERSION } = await import('../state/persistence');
+    // Seed the store synchronously (autosave is debounced).
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({
+      version: SCHEMA_VERSION,
+      savedAt: new Date().toISOString(),
+      character: { ...INITIAL_CHARACTER, name: 'Saved', cloudId: 'row-1' },
+    }));
+
+    render(
+      <CharacterProvider>
+        <CloudProvider>
+          <CloudSaveButton />
+        </CloudProvider>
+      </CharacterProvider>,
+    );
+
+    const box = await screen.findByRole('checkbox', { name: /make this character public/i });
+    expect((box as HTMLInputElement).checked).toBe(false);
+    expect(screen.getByText('Private')).toBeTruthy();
+
+    await act(async () => {
+      fireEvent.click(box);
+    });
+    await waitFor(() => expect(screen.getByText('Public')).toBeTruthy());
+    const update = db.calls.find((c) => c.op === 'update');
+    expect(update?.values).toEqual({ is_public: true });
+    expect(update?.filters).toEqual([{ column: 'id', value: 'row-1' }]);
   });
 });

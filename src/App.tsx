@@ -2,6 +2,7 @@
 // Navigation is internal wizard state; NO router dependency.
 import React, { useState, useEffect, useCallback } from 'react';
 import { CharacterProvider, useCharacter } from './state/characterStore';
+import type { Character } from './types';
 import { CoachApp } from './coach/CoachApp';
 import { CharacterSheet } from './components/CharacterSheet';
 import { SaveControls } from './components/SaveControls';
@@ -17,7 +18,7 @@ import { AbilitiesStep } from './steps/AbilitiesStep';
 import { ReviewStep } from './steps/ReviewStep';
 import { generateRandomSeed } from './rng/seeded';
 import { CharactersScreen } from './cloud/CharactersScreen';
-import { CHARACTERS_PATH, COACH_PATH as COACH_ROUTE, consumeWizardRequest, navigateTo } from './navigation';
+import { CHARACTERS_PATH, COACH_PATH as COACH_ROUTE, consumeJumpToFurthestStep, consumeWizardRequest, furthestReachableStep, navigateTo } from './navigation';
 
 // -- Step definitions --
 
@@ -31,6 +32,7 @@ const STEPS = [
 ] as const;
 
 type StepIndex = 0 | 1 | 2 | 3 | 4 | 5;
+
 
 // -- Name entry modal --
 
@@ -167,10 +169,13 @@ function NameEntry({ onStart, onCoach }: { onStart: () => void; onCoach: () => v
 
 interface StepIndicatorProps {
   current: StepIndex;
+  /** Highest step the character's data allows; steps up to it are clickable. */
+  reachable: StepIndex;
   onNavigate: (i: StepIndex) => void;
 }
 
-function StepIndicator({ current, onNavigate }: StepIndicatorProps) {
+function StepIndicator({ current, reachable, onNavigate }: StepIndicatorProps) {
+  const limit = Math.max(current, reachable);
   return (
     <nav
       className="step-indicator flex items-center gap-1 overflow-x-auto py-2 px-1"
@@ -181,8 +186,8 @@ function StepIndicator({ current, onNavigate }: StepIndicatorProps) {
         return (
           <React.Fragment key={step.id}>
             <button
-              onClick={() => i <= current && onNavigate(i as StepIndex)}
-              disabled={i > current}
+              onClick={() => i <= limit && onNavigate(i as StepIndex)}
+              disabled={i > limit}
               className="flex flex-col items-center gap-1 min-w-[3rem] disabled:cursor-default group"
               aria-current={i === current ? 'step' : undefined}
             >
@@ -216,19 +221,34 @@ function StepIndicator({ current, onNavigate }: StepIndicatorProps) {
 // -- Main wizard --
 
 function Wizard() {
-  const [step, setStep] = useState<StepIndex>(0);
-  const [sheetOpen, setSheetOpen] = useState(false);
   const { character } = useCharacter();
+  // A cloud load asks to open on the furthest earned step (Review when complete).
+  const [step, setStep] = useState<StepIndex>(() =>
+    consumeJumpToFurthestStep() ? furthestReachableStep(character) : 0,
+  );
+  const [sheetOpen, setSheetOpen] = useState(false);
+  const reachable = furthestReachableStep(character);
 
-  // Listen for level-up navigation requests from ReviewStep
+  // Listen for level-up navigation requests from ReviewStep, and for cloud
+  // loads made while the wizard is already open (jump to the loaded
+  // character's furthest step, e.g. Review for a complete one).
   useEffect(() => {
     const handler = (e: Event) => {
       const detail = (e as CustomEvent<{ stepId: string }>).detail;
       const idx = STEPS.findIndex((s) => s.id === detail.stepId);
       if (idx !== -1) setStep(idx as StepIndex);
     };
+    const onLoaded = (e: Event) => {
+      const detail = (e as CustomEvent<{ character?: Character }>).detail;
+      consumeJumpToFurthestStep(); // handled here; don't leave the flag armed
+      if (detail?.character) setStep(furthestReachableStep(detail.character));
+    };
     window.addEventListener('haikyu:goto-step', handler);
-    return () => window.removeEventListener('haikyu:goto-step', handler);
+    window.addEventListener('haikyu:open-wizard', onLoaded);
+    return () => {
+      window.removeEventListener('haikyu:goto-step', handler);
+      window.removeEventListener('haikyu:open-wizard', onLoaded);
+    };
   }, []);
 
   const StepComponent = STEPS[step].component;
@@ -283,7 +303,7 @@ function Wizard() {
         {/* Main wizard column */}
         <main className="flex-1 flex flex-col overflow-y-auto">
           <div className="no-print bg-charcoal-900 border-b border-charcoal-800 px-4">
-            <StepIndicator current={step} onNavigate={setStep} />
+            <StepIndicator current={step} reachable={reachable} onNavigate={setStep} />
           </div>
 
           <div className="flex-1 p-4 md:p-8 max-w-3xl mx-auto w-full">

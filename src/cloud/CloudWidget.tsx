@@ -17,7 +17,8 @@ import { useCloudSave } from './useCloudSave';
 import { listMine, listPublic, load, remove, setPublic } from './characters';
 import { shortDate, yearBadge } from './format';
 import type { CloudCharacterSummary, CloudClient } from './types';
-import { CHARACTERS_PATH, navigateTo } from '../navigation';
+import type { Character } from '../types';
+import { CHARACTERS_PATH, navigateTo, requestJumpToFurthestStep } from '../navigation';
 
 type PanelView = 'menu' | 'mine' | 'public';
 
@@ -52,7 +53,7 @@ function MyCharactersPanel({
 }: {
   client: CloudClient;
   userId: string;
-  onLoaded: () => void;
+  onLoaded: (loaded: Character) => void;
 }) {
   const { character, dispatch } = useCharacter();
   const [list, setList] = useState<ListState>(EMPTY_LIST);
@@ -79,7 +80,7 @@ function MyCharactersPanel({
       return;
     }
     dispatch({ type: 'IMPORT_CHARACTER', character: result.value });
-    onLoaded();
+    onLoaded(result.value);
   };
 
   const handleDelete = async (row: CloudCharacterSummary) => {
@@ -181,7 +182,7 @@ function PublicCharactersPanel({
 }: {
   client: CloudClient;
   viewerId: string | null;
-  onLoaded: () => void;
+  onLoaded: (loaded: Character) => void;
 }) {
   const { dispatch } = useCharacter();
   const [list, setList] = useState<ListState>(EMPTY_LIST);
@@ -214,7 +215,7 @@ function PublicCharactersPanel({
       return;
     }
     dispatch({ type: 'IMPORT_CHARACTER', character: result.value });
-    onLoaded();
+    onLoaded(result.value);
   };
 
   return (
@@ -263,8 +264,12 @@ function PublicCharactersPanel({
 // ── The banner control ───────────────────────────────────────────────────────
 
 /** After a cloud character is loaded, make sure the builder shows the wizard. */
-function announceLoaded(): void {
-  window.dispatchEvent(new CustomEvent('haikyu:open-wizard'));
+function announceLoaded(loaded: Character): void {
+  // Fresh mount (landing page): the wizard reads this flag when it mounts.
+  requestJumpToFurthestStep();
+  // Already mounted: the wizard listens for the event and jumps using the
+  // character carried in the detail (its own state may not have updated yet).
+  window.dispatchEvent(new CustomEvent('haikyu:open-wizard', { detail: { character: loaded } }));
 }
 
 export function CloudWidget() {
@@ -453,9 +458,9 @@ export function CloudWidget() {
             <MyCharactersPanel
               client={auth.client}
               userId={auth.userId}
-              onLoaded={() => {
+              onLoaded={(loaded) => {
                 setView(null);
-                announceLoaded();
+                announceLoaded(loaded);
               }}
             />
           )}
@@ -464,9 +469,9 @@ export function CloudWidget() {
             <PublicCharactersPanel
               client={auth.client}
               viewerId={auth.userId}
-              onLoaded={() => {
+              onLoaded={(loaded) => {
                 setView(null);
-                announceLoaded();
+                announceLoaded(loaded);
               }}
             />
           )}

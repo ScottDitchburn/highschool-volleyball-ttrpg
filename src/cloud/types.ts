@@ -9,6 +9,8 @@
 //      so tests can hand them a small hand-rolled fake with no network at all.
 // ─────────────────────────────────────────────────────────────────────────────
 
+import type { SkillStats } from '../types';
+
 export interface CloudError {
   message: string;
   code?: string;
@@ -104,6 +106,10 @@ export interface CloudCharacterSummary {
   verticalCm: number | null;
   /** Number of purchased ability instances in the payload. */
   abilityCount: number;
+  /** Ability ids purchased (duplicates kept), for filtering by ability. */
+  abilityIds: string[];
+  /** Effective skill stats (base + ability effects), or null when unreadable. */
+  stats: SkillStats | null;
 }
 
 /** The signed-in user's display info, from `public.profiles`. */

@@ -9,11 +9,15 @@ import { setCloudClientForTests } from '../cloud/client';
 import { makeFakeAuth, makeFakeDb, fakeSession } from './helpers/fakeCloudClient';
 import {
   DEFAULT_SORT,
+  applyAdvancedFilter,
   filterRows,
   mergeCharacterRows,
   nextSort,
   sortRows,
+  statSortKey,
 } from '../cloud/tableModel';
+import { makePhysicalAttributes, type SkillStats } from '../types';
+import { INITIAL_CHARACTER as BLANK } from '../state/characterStore';
 import { toSummary } from '../cloud/characters';
 import type { CloudCharacterSummary } from '../cloud/types';
 import { consumeWizardRequest } from '../navigation';
@@ -29,6 +33,8 @@ function summary(over: Partial<CloudCharacterSummary> & { id: string; name: stri
     heightCm: null,
     verticalCm: null,
     abilityCount: 0,
+    abilityIds: [],
+    stats: null,
     ...over,
   };
 }
@@ -83,6 +89,61 @@ describe('tableModel', () => {
     expect(nextSort(DEFAULT_SORT, 'updated')).toEqual({ key: 'updated', direction: 'asc' });
     expect(nextSort(DEFAULT_SORT, 'name')).toEqual({ key: 'name', direction: 'asc' });
     expect(nextSort({ key: 'name', direction: 'asc' }, 'updated')).toEqual({ key: 'updated', direction: 'desc' });
+  });
+
+  it('applies stat conditions and required abilities together (AND)', () => {
+    const tens = (v: number): SkillStats => ({
+      Spike: v, Serve: v, Pass: v, Dig: v, Set: v, Block: v, Speed: v, Power: v, IQ: v, Stamina: v,
+    });
+    const rows = mergeCharacterRows(
+      [
+        summary({ id: 'a', name: 'Kageyama', stats: { ...tens(3), Set: 4, Spike: 3.5 }, abilityIds: ['setter-dumps', 'training'] }),
+        summary({ id: 'b', name: 'Hinata', stats: { ...tens(2.5), Speed: 4 }, abilityIds: ['hustle'] }),
+        summary({ id: 'c', name: 'Blank', stats: null, abilityIds: [] }),
+      ],
+      [],
+      'me',
+    );
+    const pick = (f: Parameters<typeof applyAdvancedFilter>[1]) => applyAdvancedFilter(rows, f).map((r) => r.id);
+
+    expect(pick({ stats: [], abilityIds: [] })).toEqual(['a', 'b', 'c']);
+    expect(pick({ stats: [{ stat: 'Set', op: 'gte', value: 4 }], abilityIds: [] })).toEqual(['a']);
+    expect(pick({ stats: [{ stat: 'Spike', op: 'lte', value: 3 }], abilityIds: [] })).toEqual(['b']);
+    expect(pick({ stats: [{ stat: 'Set', op: 'gte', value: 3 }, { stat: 'Speed', op: 'gte', value: 3.5 }], abilityIds: [] })).toEqual([]);
+    expect(pick({ stats: [], abilityIds: ['training'] })).toEqual(['a']);
+    expect(pick({ stats: [], abilityIds: ['training', 'hustle'] })).toEqual([]);
+    expect(pick({ stats: [{ stat: 'Set', op: 'gte', value: 3.5 }], abilityIds: ['setter-dumps'] })).toEqual(['a']);
+    // Unreadable stats never satisfy a stat condition.
+    expect(pick({ stats: [{ stat: 'IQ', op: 'lte', value: 5 }], abilityIds: [] })).toEqual(['a', 'b']);
+  });
+
+  it('sorts by a stat column with unreadable stats last', () => {
+    const rows = mergeCharacterRows(
+      [
+        summary({ id: 'a', name: 'A', stats: { Spike: 3, Serve: 1, Pass: 1, Dig: 1, Set: 1, Block: 1, Speed: 1, Power: 1, IQ: 1, Stamina: 1 } }),
+        summary({ id: 'b', name: 'B', stats: { Spike: 4, Serve: 1, Pass: 1, Dig: 1, Set: 1, Block: 1, Speed: 1, Power: 1, IQ: 1, Stamina: 1 } }),
+        summary({ id: 'c', name: 'C', stats: null }),
+      ],
+      [],
+      'me',
+    );
+    expect(sortRows(rows, { key: statSortKey('Spike'), direction: 'desc' }).map((r) => r.id)).toEqual(['b', 'a', 'c']);
+    expect(sortRows(rows, { key: statSortKey('Spike'), direction: 'asc' }).map((r) => r.id)).toEqual(['a', 'b', 'c']);
+  });
+
+  it('toSummary computes effective stats and ability ids from a full character payload', () => {
+    const payload = {
+      ...BLANK,
+      name: 'Training Dummy',
+      physical: makePhysicalAttributes(15, 15),
+      skills: { Spike: 3, Serve: 3, Pass: 3, Dig: 3, Set: 3, Block: 3, Speed: 3, Power: 3, IQ: 3, Stamina: 3 },
+      selectedAbilities: [{ uid: 'g', abilityId: 'game-study', tier: 0, chooserSelections: {} }],
+    };
+    const s = toSummary({ id: 'z', name: 'Training Dummy', schema_version: 3, data: payload });
+    expect(s.abilityIds).toEqual(['game-study']);
+    expect(s.stats?.IQ).toBeCloseTo(3.25, 5);      // Game Study +0.25 IQ
+    expect(s.stats?.Stamina).toBeCloseTo(2.75, 5); // Game Study -0.25 Stamina
+    expect(s.stats?.Spike).toBe(3);
   });
 
   it('toSummary extracts height, vertical and ability count from the payload', () => {
@@ -250,6 +311,59 @@ describe('CharactersScreen', () => {
 
     await waitFor(() => expect(onBack).toHaveBeenCalled());
     expect(consumeWizardRequest()).toBe(true);
+  });
+
+  it('renders the ten stat columns and applies an advanced stat filter', async () => {
+    configure();
+    const auth = makeFakeAuth(fakeSession('user-1'));
+    const withStats = (name: string, iq: number) => ({
+      ...BLANK,
+      name,
+      physical: makePhysicalAttributes(15, 15),
+      skills: { Spike: 3, Serve: 3, Pass: 3, Dig: 3, Set: 3, Block: 3, Speed: 3, Power: 3, IQ: iq, Stamina: 3 },
+      selectedAbilities: [],
+    });
+    setCloudClientForTests(
+      makeFakeDb((call) => {
+        if (call.table === 'profiles') return { data: { id: 'user-1', username: 'ninja_shoyo', avatar_url: null }, error: null };
+        if (call.table === 'characters') {
+          return {
+            data: [
+              { id: 'r1', owner_id: 'user-1', name: 'Brainy', is_public: false, schema_version: 3, data: withStats('Brainy', 4), updated_at: '2026-03-03T00:00:00.000Z' },
+              { id: 'r2', owner_id: 'user-1', name: 'Dozy', is_public: false, schema_version: 3, data: withStats('Dozy', 2), updated_at: '2026-03-02T00:00:00.000Z' },
+            ],
+            error: null,
+          };
+        }
+        return { data: [], error: null };
+      }, auth.auth).client,
+    );
+
+    renderScreen();
+    await waitFor(() => expect(screen.getByText('Dozy')).toBeTruthy());
+
+    const headers = screen.getAllByRole('columnheader').map((h) => h.textContent?.replace(/[▲▼]/g, '').trim());
+    for (const name of ['Spike', 'Serve', 'Pass', 'Dig', 'Set', 'Block', 'Speed', 'Power', 'IQ', 'Stam']) {
+      expect(headers).toContain(name);
+    }
+    const brainyRow = screen.getAllByRole('row').find((r) => within(r).queryByText('Brainy'))!;
+    expect(within(brainyRow).getAllByRole('cell').map((c) => c.textContent)).toContain('4.00');
+
+    // Open filters, add "IQ at least 3.5": only Brainy remains.
+    fireEvent.click(screen.getByRole('button', { name: /^filters$/i }));
+    fireEvent.click(screen.getByRole('button', { name: /add stat condition/i }));
+    fireEvent.change(screen.getByRole('combobox', { name: /stat for condition 1/i }), { target: { value: 'IQ' } });
+    fireEvent.change(screen.getByRole('spinbutton', { name: /value for condition 1/i }), { target: { value: '3.5' } });
+    expect(screen.getByText('Brainy')).toBeTruthy();
+    expect(screen.queryByText('Dozy')).toBeNull();
+    expect(screen.getByRole('button', { name: /filters \(1\)/i })).toBeTruthy();
+
+    // Require an ability nobody has: nothing matches.
+    fireEvent.change(screen.getByRole('combobox', { name: /ability to require/i }), { target: { value: 'hustle' } });
+    fireEvent.click(screen.getByRole('button', { name: /require ability/i }));
+    expect(screen.getByText(/No characters match/)).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: /clear all/i }));
+    expect(screen.getByText('Dozy')).toBeTruthy();
   });
 
   it('shows public rows and a sign-in prompt when signed out', async () => {
