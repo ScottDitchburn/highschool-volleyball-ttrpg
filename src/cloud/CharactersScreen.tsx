@@ -134,7 +134,7 @@ function FilterPanel({
             <input
               type="number"
               step={0.25}
-              min={1}
+              min={0.25}
               max={5}
               value={cond.value}
               onChange={(e) => updateCondition(index, { value: Number(e.target.value) })}

@@ -184,32 +184,46 @@ describe('Rest (new in v.3)', () => {
 // ── Weight Lifting ────────────────────────────────────────────────────────────
 
 describe('Stat floor (v.3 Stamina costs)', () => {
-  it('floors an effective stat at 1.00 after summing every penalty', () => {
-    // Three Weight Lifting purchases = -1.5 Stamina; from 2.0 that would be 0.5.
+  it('lets a stat fall below the 4d4 minimum of 1.00', () => {
+    // Three Weight Lifting purchases = -1.5 Stamina; from 2.0 that is 0.5.
     const char = makeChar({
       skills: allStats(2),
       selectedAbilities: Array.from({ length: 3 }, (_, i) =>
         makeSel('weight-lifting', 'w' + i, { 0: 'power' })),
     });
     const eff = computeEffectiveStats(char)!;
-    expect(eff.Stamina).toBe(STAT_FLOOR);
-    expect(eff.Stamina).toBe(1);
+    expect(eff.Stamina).toBeCloseTo(0.5, 5);
     // Bonuses on other stats are untouched and there is no ceiling.
     expect(eff.Power).toBeCloseTo(2.75, 5);
   });
 
+  it('floors an effective stat at 0.25 after summing every penalty', () => {
+    // Four Weight Lifting purchases = -2.0 Stamina; from 1.0 that would be -1.0.
+    const char = makeChar({
+      skills: { ...allStats(2), Stamina: 1 },
+      selectedAbilities: Array.from({ length: 4 }, (_, i) =>
+        makeSel('weight-lifting', 'w' + i, { 0: 'power' })),
+    });
+    const eff = computeEffectiveStats(char)!;
+    expect(eff.Stamina).toBe(STAT_FLOOR);
+    expect(eff.Stamina).toBe(0.25);
+  });
+
   it('floors the summed total, independent of purchase order', () => {
-    // Stamina 1.0 base: Weight Lifting (-0.5) + Rest (+0.25) sums to 0.75 -> floored to 1.0.
-    // Two Rests would sum to exactly 1.0; a third lifts it to 1.25.
+    // Stamina 1.0 base: three Weight Lifting (-1.5) + Rest (+0.25) sums to -0.25 -> floored to 0.25.
     const sels = [
-      makeSel('weight-lifting', 'w1', { 0: 'speed' }),
+      ...Array.from({ length: 3 }, (_, i) => makeSel('weight-lifting', 'w' + i, { 0: 'speed' })),
       makeSel('rest', 'r1', {}),
     ];
     const base = { ...allStats(3), Stamina: 1 };
-    expect(computeEffectiveStats(makeChar({ skills: base, selectedAbilities: sels }))!.Stamina).toBe(1);
-    expect(computeEffectiveStats(makeChar({ skills: base, selectedAbilities: [...sels].reverse() }))!.Stamina).toBe(1);
+    expect(computeEffectiveStats(makeChar({ skills: base, selectedAbilities: sels }))!.Stamina).toBe(0.25);
+    expect(computeEffectiveStats(makeChar({ skills: base, selectedAbilities: [...sels].reverse() }))!.Stamina).toBe(0.25);
+    // A bonus only lifts the stat once the summed penalties have been recovered:
+    // 1.0 - 1.5 + 3 x 0.25 sums to exactly the floor, a fourth Rest clears it.
     const threeRests = [...sels, makeSel('rest', 'r2', {}), makeSel('rest', 'r3', {})];
-    expect(computeEffectiveStats(makeChar({ skills: base, selectedAbilities: threeRests }))!.Stamina).toBeCloseTo(1.25, 5);
+    expect(computeEffectiveStats(makeChar({ skills: base, selectedAbilities: threeRests }))!.Stamina).toBeCloseTo(0.25, 5);
+    const fourRests = [...threeRests, makeSel('rest', 'r4', {})];
+    expect(computeEffectiveStats(makeChar({ skills: base, selectedAbilities: fourRests }))!.Stamina).toBeCloseTo(0.5, 5);
   });
 
   it('leaves stats above the floor exactly as computed', () => {

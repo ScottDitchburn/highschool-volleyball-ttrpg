@@ -19,12 +19,13 @@ import { SKILL_STAT_NAMES } from '../types';
 import { ABILITY_MAP } from '../data/abilities';
 
 /**
- * Lowest value an effective skill stat can reach. A 4d4 average is never
- * below 1.00, and v.3's Stamina costs (Training, Quick Learner, Weight Lifting,
- * Game Study) must not push a stat under it — design call, see DATA_NOTES.md.
- * There is no ceiling: bonuses may still raise a stat above 4.00.
+ * Lowest value an effective skill stat can reach: one 0.25 step above zero, so
+ * v.3's Stamina costs (Training, Quick Learner, Weight Lifting, Game Study) can
+ * take a stat well below the 4d4 minimum of 1.00 without reaching zero —
+ * design call, see DATA_NOTES.md. There is no ceiling: bonuses may still raise
+ * a stat above 4.00.
  */
-export const STAT_FLOOR = 1.0;
+export const STAT_FLOOR = 0.25;
 
 /**
  * The stats a chooser actually allows: an explicit shortlist as given (the six VB
@@ -104,7 +105,7 @@ function* activeEffects(
  * - `optionChoice`: the recorded option's own statDelta effects are applied;
  *   an unresolved choice applies nothing.
  *
- * After all deltas are summed, every stat is floored at STAT_FLOOR (1.00).
+ * After all deltas are summed, every stat is floored at STAT_FLOOR (0.25).
  * There is no ceiling: stats may exceed 4.00 via bonuses. See DATA_NOTES.md.
  */
 export function applyStatEffects(character: Character, baseStats: SkillStats): SkillStats {
