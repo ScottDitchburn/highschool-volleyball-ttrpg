@@ -29,7 +29,7 @@ import {
   type StatCondition,
   type TableScope,
 } from './tableModel';
-import { SKILL_STAT_NAMES, type SkillStat } from '../types';
+import { SKILL_STAT_NAMES } from '../types';
 import { ABILITIES, ABILITY_MAP } from '../data/abilities';
 import { requestJumpToFurthestStep, requestWizardOnReturn } from '../navigation';
 
@@ -52,6 +52,8 @@ const COLUMNS: { key: SortKey; label: string; align?: 'right'; title?: string }[
   { key: 'traits', label: 'Traits' },
   { key: 'height', label: 'Height', align: 'right' },
   { key: 'vertical', label: 'Vertical', align: 'right' },
+  { key: 'spikingReachCm', label: 'Spike Reach', align: 'right', title: 'Spike Reach (cm, with ability bonuses)' },
+  { key: 'blockingReachCm', label: 'Block Reach', align: 'right', title: 'Block Reach (cm, with ability bonuses)' },
   ...SKILL_STAT_NAMES.map((stat) => ({
     key: statSortKey(stat),
     label: stat === 'Stamina' ? 'Stam' : stat,
@@ -114,13 +116,15 @@ function FilterPanel({
           <div key={index} className="flex flex-wrap items-center gap-2">
             <select
               value={cond.stat}
-              onChange={(e) => updateCondition(index, { stat: e.target.value as SkillStat })}
+              onChange={(e) => updateCondition(index, { stat: e.target.value as StatCondition['stat'] })}
               aria-label={`Stat for condition ${index + 1}`}
               className="bg-charcoal-800 border border-charcoal-600 rounded-lg px-2 py-1 text-sm text-charcoal-100"
             >
               {SKILL_STAT_NAMES.map((name) => (
                 <option key={name} value={name}>{name}</option>
               ))}
+              <option value="spikingReachCm">Spike Reach (cm)</option>
+              <option value="blockingReachCm">Block Reach (cm)</option>
             </select>
             <select
               value={cond.op}
@@ -133,9 +137,9 @@ function FilterPanel({
             </select>
             <input
               type="number"
-              step={0.25}
-              min={0.25}
-              max={5}
+              step={cond.stat === 'spikingReachCm' || cond.stat === 'blockingReachCm' ? 0.01 : 0.25}
+              min={cond.stat === 'spikingReachCm' || cond.stat === 'blockingReachCm' ? 0 : 0.25}
+              max={cond.stat === 'spikingReachCm' || cond.stat === 'blockingReachCm' ? undefined : 5}
               value={cond.value}
               onChange={(e) => updateCondition(index, { value: Number(e.target.value) })}
               aria-label={`Value for condition ${index + 1}`}
@@ -479,6 +483,8 @@ export function CharactersScreen({ onBack }: Props) {
                         <td className="px-3 py-2 whitespace-nowrap text-charcoal-300 text-xs">{row.traits.join(', ') || '—'}</td>
                         <td className="px-3 py-2 text-right font-mono text-charcoal-300">{cm(row.heightCm)}</td>
                         <td className="px-3 py-2 text-right font-mono text-charcoal-300">{cm(row.verticalCm)}</td>
+                        <td className="px-3 py-2 text-right font-mono text-charcoal-300">{row.spikingReachCm === null ? '—' : `${row.spikingReachCm.toFixed(2)} cm`}</td>
+                        <td className="px-3 py-2 text-right font-mono text-charcoal-300">{row.blockingReachCm === null ? '—' : `${row.blockingReachCm.toFixed(2)} cm`}</td>
                         {SKILL_STAT_NAMES.map((name) => (
                           <td key={name} className="px-2 py-2 text-right font-mono text-charcoal-300">
                             {stat(row.stats?.[name])}

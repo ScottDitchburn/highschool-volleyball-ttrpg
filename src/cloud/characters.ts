@@ -9,8 +9,8 @@
 
 import type { Character } from '../types';
 import { SCHEMA_VERSION, adoptCharacter } from '../state/persistence';
-import { computeEffectiveStats } from '../state/characterStore';
-import type { SkillStats, CharacterProfile } from '../types';
+import { computeDerived, computeEffectiveStats } from '../state/characterStore';
+import type { CharacterProfile } from '../types';
 import { positionCodes } from '../types';
 import { traitLabel } from '../data/traits';
 import type {
@@ -73,15 +73,18 @@ function numberAt(obj: unknown, key: string): number | null {
 }
 
 /**
- * Effective stats of a stored payload, computed exactly as the builder does
- * (migration + ability effects). Null when the payload is not a usable
- * character or its skills are unassigned.
+ * Effective stats and reaches, using the builder's migration and ability effects.
+ * Null when the payload is not a usable character.
  */
-function effectiveStatsOf(row: CloudCharacterRow, payload: Record<string, unknown>): SkillStats | null {
+function effectiveValuesOf(row: CloudCharacterRow, payload: Record<string, unknown>) {
   const version = typeof row.schema_version === 'number' ? row.schema_version : SCHEMA_VERSION;
   try {
     const adopted = adoptCharacter(JSON.parse(JSON.stringify(payload)) as unknown, version, 'row');
-    return adopted.ok ? computeEffectiveStats(adopted.character) : null;
+    if (!adopted.ok) return null;
+    return {
+      stats: computeEffectiveStats(adopted.character),
+      reaches: computeDerived(adopted.character),
+    };
   } catch {
     return null;
   }
@@ -91,6 +94,7 @@ export function toSummary(row: CloudCharacterRow): CloudCharacterSummary {
   const payload = payloadOf(row);
   const year = payload && typeof payload.schoolYear === 'number' ? payload.schoolYear : null;
   const physical = payload?.physical ?? null;
+  const effective = payload ? effectiveValuesOf(row, payload) : null;
   const abilities = payload?.selectedAbilities;
   const abilityIds = Array.isArray(abilities)
     ? abilities
@@ -108,9 +112,11 @@ export function toSummary(row: CloudCharacterRow): CloudCharacterSummary {
     ownerId: row.owner_id ?? null,
     heightCm: numberAt(physical, 'heightCm'),
     verticalCm: numberAt(physical, 'verticalCm'),
+    spikingReachCm: numberAt(effective?.reaches, 'spikingReachCm'),
+    blockingReachCm: numberAt(effective?.reaches, 'blockingReachCm'),
     abilityCount: Array.isArray(abilities) ? abilities.length : 0,
     abilityIds,
-    stats: payload ? effectiveStatsOf(row, payload) : null,
+    stats: effective?.stats ?? null,
     traits: profileTraits(payload),
     positions: profilePositions(payload),
   };

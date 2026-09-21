@@ -27,6 +27,8 @@ export type SortKey =
   | 'year'
   | 'height'
   | 'vertical'
+  | 'spikingReachCm'
+  | 'blockingReachCm'
   | 'abilities'
   | 'visibility'
   | 'updated'
@@ -42,9 +44,10 @@ export function statSortKey(stat: SkillStat): SortKey {
 // ── advanced filter ──────────────────────────────────────────────────────────
 
 export type StatOp = 'gte' | 'lte';
+export type FilterStat = SkillStat | 'spikingReachCm' | 'blockingReachCm';
 
 export interface StatCondition {
-  stat: SkillStat;
+  stat: FilterStat;
   op: StatOp;
   value: number;
 }
@@ -67,7 +70,9 @@ export function applyAdvancedFilter(rows: CharacterTableRow[], filter: AdvancedF
   if (isFilterEmpty(filter)) return rows;
   return rows.filter((row) => {
     for (const cond of filter.stats) {
-      const value = row.stats?.[cond.stat];
+      const value = cond.stat === 'spikingReachCm' || cond.stat === 'blockingReachCm'
+        ? row[cond.stat]
+        : row.stats?.[cond.stat];
       if (value === undefined || value === null) return false;
       if (cond.op === 'gte' && value < cond.value - 1e-9) return false;
       if (cond.op === 'lte' && value > cond.value + 1e-9) return false;
@@ -192,6 +197,11 @@ export function sortRows(rows: CharacterTableRow[], sort: SortSpec): CharacterTa
         if (fixed === null) cmp = (a.verticalCm as number) - (b.verticalCm as number);
         break;
       case 'abilities':  cmp = a.abilityCount - b.abilityCount; break;
+      case 'spikingReachCm':
+      case 'blockingReachCm':
+        fixed = nullsLast(a[sort.key], b[sort.key]);
+        if (fixed === null) cmp = (a[sort.key] as number) - (b[sort.key] as number);
+        break;
       case 'positions':  cmp = compareStrings(a.positions, b.positions); break;
       case 'traits':     cmp = compareStrings(a.traits.join(', '), b.traits.join(', ')); break;
       case 'visibility': cmp = Number(a.isPublic) - Number(b.isPublic); break;

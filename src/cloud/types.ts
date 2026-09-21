@@ -104,6 +104,8 @@ export interface CloudCharacterSummary {
   /** Base height / vertical jump from the payload's physical block, if assigned. */
   heightCm: number | null;
   verticalCm: number | null;
+  spikingReachCm: number | null;
+  blockingReachCm: number | null;
   /** Number of purchased ability instances in the payload. */
   abilityCount: number;
   /** Ability ids purchased (duplicates kept), for filtering by ability. */

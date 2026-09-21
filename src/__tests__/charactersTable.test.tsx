@@ -32,6 +32,8 @@ function summary(over: Partial<CloudCharacterSummary> & { id: string; name: stri
     ownerId: null,
     heightCm: null,
     verticalCm: null,
+    spikingReachCm: null,
+    blockingReachCm: null,
     abilityCount: 0,
     abilityIds: [],
     stats: null,
@@ -42,6 +44,34 @@ function summary(over: Partial<CloudCharacterSummary> & { id: string; name: stri
 }
 
 describe('tableModel', () => {
+  it.each(['spikingReachCm', 'blockingReachCm'] as const)('filters and sorts %s with inclusive bounds and missing values last', (key) => {
+    const rows = mergeCharacterRows([
+      summary({ id: 'a', name: 'A', [key]: 310.25 }),
+      summary({ id: 'b', name: 'B', [key]: 320.5 }),
+      summary({ id: 'c', name: 'C' }),
+    ], [], 'me');
+    expect(applyAdvancedFilter(rows, { stats: [{ stat: key, op: 'gte', value: 320.5 }], abilityIds: [] }).map((r) => r.id)).toEqual(['b']);
+    expect(applyAdvancedFilter(rows, { stats: [{ stat: key, op: 'lte', value: 310.25 }], abilityIds: [] }).map((r) => r.id)).toEqual(['a']);
+    expect(sortRows(rows, { key, direction: 'asc' }).map((r) => r.id)).toEqual(['a', 'b', 'c']);
+    expect(sortRows(rows, { key, direction: 'desc' }).map((r) => r.id)).toEqual(['b', 'a', 'c']);
+  });
+
+  it('summarizes effective reaches including ability bonuses, without requiring skills', () => {
+    const physical = makePhysicalAttributes(15, 15);
+    const s = toSummary({ id: 'r', name: 'Jumper', schema_version: 3, data: {
+      ...BLANK, physical,
+      selectedAbilities: [
+        { uid: 'boom', abilityId: 'boom-jump-technique', tier: 0, chooserSelections: {} },
+        { uid: 'swing', abilityId: 'swing-block', tier: 0, chooserSelections: {} },
+      ],
+    } });
+    expect(s.spikingReachCm).toBeCloseTo(1.3 * physical.heightCm + physical.verticalCm + 6);
+    expect(s.blockingReachCm).toBeCloseTo(1.3 * physical.heightCm + 0.9 * physical.verticalCm);
+    expect(s.stats).toBeNull();
+    expect(toSummary({ id: 'blank', name: 'Blank', schema_version: 3, data: BLANK })).toMatchObject({ spikingReachCm: null, blockingReachCm: null });
+    expect(toSummary({ id: 'bad', name: 'Bad', schema_version: 3, data: { physical: { heightCm: 'bad' } } })).toMatchObject({ spikingReachCm: null, blockingReachCm: null });
+  });
+
   const mine = [
     summary({ id: 'a', name: 'Kageyama', isPublic: true, schoolYear: 1, heightCm: 180, updatedAt: '2026-03-01T00:00:00Z' }),
     summary({ id: 'b', name: 'Hinata', isPublic: false, schoolYear: 1, heightCm: 162, updatedAt: '2026-02-01T00:00:00Z' }),
@@ -227,6 +257,41 @@ afterEach(() => {
 });
 
 describe('CharactersScreen', () => {
+  it.each([
+    ['spikingReachCm', 'Spike Reach', '322.40'],
+    ['blockingReachCm', 'Block Reach', '310.70'],
+  ])('displays, filters and sorts %s in cm', async (key, label, boundary) => {
+    configure();
+    const auth = makeFakeAuth(fakeSession('user-1'));
+    setCloudClientForTests(makeFakeDb((call) => {
+      if (call.table === 'characters') return { data: [
+        { id: 'a', name: 'Short', schema_version: 3, data: { ...BLANK, physical: makePhysicalAttributes(15, 15) } },
+        { id: 'b', name: 'Tall', schema_version: 3, data: { ...BLANK, physical: makePhysicalAttributes(20, 20) } },
+        { id: 'c', name: 'Blank', schema_version: 3, data: BLANK },
+      ], error: null };
+      if (call.table === 'public_characters') return { data: [], error: null };
+      return respond(call);
+    }, auth.auth).client);
+    renderScreen();
+    await screen.findByText('Tall');
+    const header = screen.getByRole('button', { name: new RegExp(label) });
+    fireEvent.click(header);
+    const names = () => screen.getAllByRole('row').slice(1).map((r) => within(r).getAllByRole('cell')[1].textContent);
+    expect(names()).toEqual(['Short', 'Tall', 'Blank']);
+    fireEvent.click(header);
+    expect(names()).toEqual(['Tall', 'Short', 'Blank']);
+    expect(screen.getByText(`${boundary} cm`)).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: /^filters$/i }));
+    fireEvent.click(screen.getByRole('button', { name: /add stat condition/i }));
+    fireEvent.change(screen.getByRole('combobox', { name: /stat for condition 1/i }), { target: { value: key } });
+    const input = screen.getByRole('spinbutton', { name: /value for condition 1/i });
+    expect(input.getAttribute('max')).toBeNull();
+    fireEvent.change(input, { target: { value: boundary } });
+    expect(names()).toEqual(['Tall']);
+    fireEvent.change(screen.getByRole('combobox', { name: /comparison for condition 1/i }), { target: { value: 'lte' } });
+    expect(names()).toEqual(['Tall', 'Short']);
+  });
+
   it('puts the owner in the first column and merges my rows with public ones', async () => {
     configure();
     const auth = makeFakeAuth(fakeSession('user-1'));
