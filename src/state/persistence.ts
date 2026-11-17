@@ -2,8 +2,16 @@
 // Persistence — localStorage autosave + JSON export/import
 // ─────────────────────────────────────────────────────────────────────────────
 
-import type { Character, SelectedAbility, LevelUpRecord, PhysicalAttributes } from '../types';
-import { computeReaches, makePhysicalAttributes } from '../types';
+import type {
+  Character,
+  SelectedAbility,
+  LevelUpRecord,
+  LevelUpMode,
+  MatchResult,
+  PhysicalAttributes,
+  WeeklyMatchRecord,
+} from '../types';
+import { computeReaches, makePhysicalAttributes, weeklyMatchAp } from '../types';
 import { generateUid } from './characterStore';
 import { INITIAL_CHARACTER } from './characterStore';
 
@@ -70,6 +78,50 @@ function migrateLevelUpHistory(history: unknown): LevelUpRecord[] {
     const r = entry as Record<string, unknown> | null;
     return r != null && (r.season === 'summer' || r.season === 'spring');
   });
+}
+
+/**
+ * Weekly match log arriving from a save, cloud row or imported file.
+ *
+ * Keeps only rows with a recognised result, backfills a uid and timestamp where
+ * one is missing and leaves `apGained` as recorded — the log is an audit trail,
+ * so a later rules change must not rewrite what a past match awarded. A row
+ * with no usable apGained falls back to the current award for its result.
+ */
+function migrateWeeklyMatches(matches: unknown): WeeklyMatchRecord[] {
+  if (!Array.isArray(matches)) return [];
+  const out: WeeklyMatchRecord[] = [];
+  for (const entry of matches) {
+    const r = entry as Record<string, unknown> | null;
+    if (r == null || (r.result !== 'win' && r.result !== 'loss')) continue;
+    const result = r.result as MatchResult;
+    out.push({
+      uid: typeof r.uid === 'string' && r.uid !== '' ? r.uid : generateUid(),
+      result,
+      apGained: typeof r.apGained === 'number' && Number.isFinite(r.apGained)
+        ? r.apGained
+        : weeklyMatchAp(result),
+      note: typeof r.note === 'string' ? r.note : '',
+      recordedAt: typeof r.recordedAt === 'string' ? r.recordedAt : '',
+      year: r.year === 1 || r.year === 2 || r.year === 3 ? r.year : 1,
+    });
+  }
+  return out;
+}
+
+/** Only the two known systems survive a load; anything else leaves the picker open. */
+function migrateLevelUpMode(mode: unknown): LevelUpMode | undefined {
+  return mode === 'tournament' || mode === 'weekly' ? mode : undefined;
+}
+
+/** Normalise both level-up logs and the system choice on a loaded character. */
+function migrateLevelUpState(character: Character): Character {
+  character.levelUpHistory = migrateLevelUpHistory(character.levelUpHistory);
+  character.weeklyMatches = migrateWeeklyMatches(character.weeklyMatches);
+  const mode = migrateLevelUpMode(character.levelUpMode);
+  if (mode === undefined) delete character.levelUpMode;
+  else character.levelUpMode = mode;
+  return character;
 }
 
 /**
@@ -148,8 +200,9 @@ export function adoptCharacter(
   if (Array.isArray(character.selectedAbilities)) {
     character.selectedAbilities = migrateSelectedAbilities(character.selectedAbilities);
   }
-  // Migrate: drop pre-two-event level-up records (banked AP is preserved separately)
-  character.levelUpHistory = migrateLevelUpHistory(character.levelUpHistory);
+  // Migrate: drop pre-two-event level-up records (banked AP is preserved
+  // separately), sanitise the weekly match log and the system choice
+  migrateLevelUpState(character);
   // Migrate: v.3 modifier + corrected roll→cm table conversions
   return { ok: true, character: migratePhysical(character, version) };
 }
@@ -198,8 +251,9 @@ export function loadSaved(): Character | null {
     if (Array.isArray(character.selectedAbilities)) {
       character.selectedAbilities = migrateSelectedAbilities(character.selectedAbilities);
     }
-    // Migrate: drop pre-two-event level-up records (banked AP is preserved separately)
-    character.levelUpHistory = migrateLevelUpHistory(character.levelUpHistory);
+    // Migrate: drop pre-two-event level-up records (banked AP is preserved
+    // separately), sanitise the weekly match log and the system choice
+    migrateLevelUpState(character);
     // Migrate: v.3 modifier + corrected roll→cm table conversions
     return migratePhysical(character, parsed.version);
   } catch {

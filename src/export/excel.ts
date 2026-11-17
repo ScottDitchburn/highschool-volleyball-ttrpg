@@ -6,7 +6,17 @@
 // the main bundle does not carry the xlsx writer until the button is pressed.
 
 import type { Character, SkillStats, DerivedReaches } from '../types';
-import { SKILL_STAT_NAMES, formatVerticalModifier, PREFERRED_POSITION_NAME, profileOf } from '../types';
+import {
+  SKILL_STAT_NAMES,
+  formatVerticalModifier,
+  PREFERRED_POSITION_NAME,
+  profileOf,
+  LEVEL_UP_MODE_LABEL,
+  MATCH_RESULT_LABEL,
+  levelUpModeOf,
+  summariseWeeklyMatches,
+  weeklyMatchesOf,
+} from '../types';
 import { traitLabel } from '../data/traits';
 import { ABILITY_MAP } from '../data/abilities';
 import { computeAPBudget } from '../engine/apEngine';
@@ -79,6 +89,7 @@ function summarySheet(
   kv('Name', text(character.name || 'Unnamed Player'));
   kv('School Year', text(character.graduated ? 'Graduate' : yearLabel(character.schoolYear)));
   kv('Graduated', bool(character.graduated === true));
+  kv('Level-Up System', text(LEVEL_UP_MODE_LABEL[levelUpModeOf(character)]));
   kv('Seeded Run', bool(character.seeded));
   if (character.seeded && character.seed) kv('Seed', text(character.seed));
 
@@ -198,6 +209,46 @@ function levelUpSheet(character: Character): XlsxSheet {
   };
 }
 
+function weeklyMatchesSheet(character: Character): XlsxSheet {
+  const matches = weeklyMatchesOf(character);
+  const summary = summariseWeeklyMatches(matches);
+  const rows: XlsxRow[] = [
+    header('Record', 'Played', 'Wins', 'Losses', 'Win Rate', 'AP From Matches'),
+    [
+      text(`${summary.wins}-${summary.losses}`),
+      num(summary.played),
+      num(summary.wins),
+      num(summary.losses),
+      num(summary.winRate, '0%'),
+      num(summary.apGained),
+    ],
+    [],
+    header('Match', 'Result', 'AP Gained', 'Running AP', 'School Year', 'Recorded At', 'Note'),
+  ];
+  let runningAp = 0;
+  matches.forEach((match, i) => {
+    runningAp += match.apGained;
+    rows.push([
+      num(i + 1),
+      text(MATCH_RESULT_LABEL[match.result]),
+      num(match.apGained),
+      num(runningAp),
+      num(match.year),
+      text(match.recordedAt),
+      { ...text(match.note), wrap: true },
+    ]);
+  });
+  if (matches.length === 0) rows.push([text('(no matches recorded)')]);
+  return {
+    sheet: 'Match Log',
+    columns: [
+      { width: 7 }, { width: 9 }, { width: 11 }, { width: 11 },
+      { width: 12 }, { width: 22 }, { width: 40 },
+    ],
+    data: rows,
+  };
+}
+
 function rollsSheet(character: Character): XlsxSheet {
   const rows: XlsxRow[] = [header('Pool', 'Die 1', 'Die 2', 'Die 3', 'Die 4', 'Result')];
   const { rollA, rollB } = character.physicalPool;
@@ -229,11 +280,15 @@ export function buildCharacterWorkbook(
   effectiveStats: SkillStats | null,
   derived: DerivedReaches | null,
 ): XlsxSheet[] {
+  // The Match Log sheet only appears for characters on the Weekly system (or
+  // ones carrying a log from it), so a Tournament workbook keeps its shape.
+  const weekly = levelUpModeOf(character) === 'weekly' || weeklyMatchesOf(character).length > 0;
   return [
     summarySheet(character, derived),
     statsSheet(character, effectiveStats),
     abilitiesSheet(character),
     levelUpSheet(character),
+    ...(weekly ? [weeklyMatchesSheet(character)] : []),
     rollsSheet(character),
   ];
 }

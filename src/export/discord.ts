@@ -2,7 +2,14 @@
 // Build a Discord-friendly triple-backtick code block from a character.
 
 import type { Character, SkillStats, DerivedReaches } from '../types';
-import { SKILL_STAT_NAMES, formatVerticalModifier, positionCodes, profileOf } from '../types';
+import {
+  SKILL_STAT_NAMES,
+  formatVerticalModifier,
+  positionCodes,
+  profileOf,
+  summariseWeeklyMatches,
+  weeklyMatchesOf,
+} from '../types';
 import { traitLabel } from '../data/traits';
 import { ABILITY_MAP } from '../data/abilities';
 import { computeAPBudget } from '../engine/apEngine';
@@ -10,6 +17,9 @@ import { cmDual } from '../utils/units';
 import { choiceLabels } from '../utils/abilityChoices';
 
 const PAD = 14; // label column width
+
+/** How many of the latest weekly matches the Discord footnote lists. */
+const RECENT_MATCHES = 5;
 
 function pad(s: string, n = PAD): string {
   return s.padEnd(n, ' ');
@@ -151,7 +161,25 @@ export function buildDiscordExport(
       }).join(' | ')}]`
     : '';
 
-  const full = '```\n' + body + historyNote + '\n```';
+  // Weekly match log footnote: long-run record plus the most recent matches.
+  const matches = weeklyMatchesOf(character);
+  let weeklyNote = '';
+  if (matches.length > 0) {
+    const s = summariseWeeklyMatches(matches);
+    const pct = Math.round(s.winRate * 100);
+    weeklyNote = `\n[Weekly match log: ${s.wins}W-${s.losses}L (${pct}%) · +${s.apGained} AP over ${s.played} ${s.played === 1 ? 'match' : 'matches'}]`;
+    const recent = matches
+      .map((m, i) => ({ m, n: i + 1 }))
+      .slice(-RECENT_MATCHES)
+      .reverse()
+      .map(({ m, n }) => {
+        const note = m.note ? ` "${m.note.length > 24 ? m.note.slice(0, 23) + '…' : m.note}"` : '';
+        return `#${n} ${m.result === 'win' ? 'W' : 'L'} +${m.apGained}${note}`;
+      });
+    weeklyNote += `\n[Recent: ${recent.join(' | ')}]`;
+  }
+
+  const full = '```\n' + body + historyNote + weeklyNote + '\n```';
 
   // Discord message limit is 2000 chars; trim abilities if needed
   if (full.length > 1990) {

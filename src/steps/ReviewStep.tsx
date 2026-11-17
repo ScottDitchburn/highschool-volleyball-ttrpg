@@ -3,7 +3,7 @@
 
 import React, { useState, useCallback } from 'react';
 import { useCharacter } from '../state/characterStore';
-import { SKILL_STAT_NAMES, formatVerticalModifier, type InterhighSeason } from '../types';
+import { SKILL_STAT_NAMES, formatVerticalModifier, levelUpModeOf, type InterhighSeason } from '../types';
 import { ABILITY_MAP } from '../data/abilities';
 import { computeAPBudget } from '../engine/apEngine';
 import { LevelUpModal } from '../components/LevelUpModal';
@@ -11,6 +11,8 @@ import { PrintSheet } from '../export/PrintSheet';
 import { buildDiscordExport } from '../export/discord';
 import { downloadCharacterExcel } from '../export/excel';
 import { PlayerProfileCard } from '../components/PlayerProfileCard';
+import { LevelUpSystemPicker } from '../components/LevelUpSystemPicker';
+import { WeeklyMatchPanel } from '../components/WeeklyMatchPanel';
 import { cmDual } from '../utils/units';
 import { choiceLabels } from '../utils/abilityChoices';
 import { SkillRadar } from '../charts/SkillRadar';
@@ -88,6 +90,8 @@ export function ReviewStep() {
   const graduated = character.graduated === true;
 
   const apBudget = computeAPBudget(character);
+  const mode = levelUpModeOf(character);
+  const isTournament = mode === 'tournament';
 
   const [levelUpSeason, setLevelUpSeason] = useState<InterhighSeason | null>(null);
   const [copyState, setCopyState] = useState<'idle' | 'copied' | 'error'>('idle');
@@ -216,7 +220,7 @@ export function ReviewStep() {
               >
                 Start New Character
               </button>
-            ) : (
+            ) : isTournament ? (
               <>
                 <button
                   onClick={() => setLevelUpSeason('summer')}
@@ -249,12 +253,16 @@ export function ReviewStep() {
                   {isThirdYear ? 'Spring Interhigh & Graduation' : 'Spring Interhigh'}
                 </button>
               </>
-            )}
+            ) : null}
           </div>
         </div>
 
         {/* ── Player profile: traits, positions, bio ── */}
         <PlayerProfileCard />
+
+        {/* ── Level-up system: Tournament arc or Weekly match log ── */}
+        <LevelUpSystemPicker />
+        {mode === 'weekly' && <WeeklyMatchPanel />}
 
         {/* Main grid: 2 columns on md+ */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -335,7 +343,7 @@ export function ReviewStep() {
               <span className="font-mono text-right text-charcoal-200">+{apBudget.experienceBonus}</span>
               {apBudget.levelUpGains > 0 && (
                 <>
-                  <span className="text-charcoal-400">Level-Up Gains</span>
+                  <span className="text-charcoal-400">{isTournament ? 'Level-Up Gains' : 'Match AP'}</span>
                   <span className="font-mono text-right text-orange-400">+{apBudget.levelUpGains}</span>
                 </>
               )}
@@ -448,7 +456,7 @@ export function ReviewStep() {
               Start New Character
             </button>
           </div>
-        ) : !summerDone ? (
+        ) : !isTournament ? null : !summerDone ? (
           <div className="card flex items-center justify-between gap-4 flex-wrap">
             <div>
               <div className="text-charcoal-200 font-semibold text-sm">Summer Interhigh</div>

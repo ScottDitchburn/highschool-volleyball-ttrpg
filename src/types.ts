@@ -261,6 +261,96 @@ export function interhighAp(prelimGames: number, nationalGames: number): number 
   return 2 * prelimGames + 3 * nationalGames;
 }
 
+// ── Level-up system ───────────────────────────────────────────────────────────
+
+/**
+ * Which level-up system a character uses.
+ *   'tournament' — the Interhigh arc format: Summer then Spring events per year,
+ *                  with height growth, year advance and graduation.
+ *   'weekly'     — one record per match played: Win +2 AP, Loss +1 AP, plus a
+ *                  free-text reference note. AP only; the school year is frozen,
+ *                  so there is no height growth and no graduation.
+ *
+ * `undefined` means the player has not chosen yet: the character behaves as
+ * 'tournament' and the picker on the Review step is still open. Choosing a
+ * system writes this field, which locks the picker for good.
+ */
+export type LevelUpMode = 'tournament' | 'weekly';
+
+export const DEFAULT_LEVEL_UP_MODE: LevelUpMode = 'tournament';
+
+export const LEVEL_UP_MODE_LABEL: Record<LevelUpMode, string> = {
+  tournament: 'Tournament',
+  weekly: 'Weekly',
+};
+
+/** The system in force, treating an unchosen character as the default. */
+export function levelUpModeOf(character: { levelUpMode?: LevelUpMode }): LevelUpMode {
+  return character.levelUpMode ?? DEFAULT_LEVEL_UP_MODE;
+}
+
+/** True once the choice has been committed and can no longer be changed. */
+export function isLevelUpModeLocked(character: { levelUpMode?: LevelUpMode }): boolean {
+  return character.levelUpMode !== undefined;
+}
+
+// ── Weekly match log ──────────────────────────────────────────────────────────
+
+export type MatchResult = 'win' | 'loss';
+
+/** AP awarded per match result under the Weekly system. */
+export const WEEKLY_MATCH_AP: Record<MatchResult, number> = { win: 2, loss: 1 };
+
+export const MATCH_RESULT_LABEL: Record<MatchResult, string> = { win: 'Win', loss: 'Loss' };
+
+export function weeklyMatchAp(result: MatchResult): number {
+  return WEEKLY_MATCH_AP[result];
+}
+
+/** One match in the Weekly audit trail. Records are append-only. */
+export interface WeeklyMatchRecord {
+  /** Stable row id, generated at record time. */
+  uid: string;
+  result: MatchResult;
+  /** AP this match awarded — stored so a later rules change cannot rewrite history. */
+  apGained: number;
+  /** Free-text reference the player keeps about the match. Never interpreted. */
+  note: string;
+  /** ISO 8601 timestamp the match was recorded at. */
+  recordedAt: string;
+  /** School year at the time of the match (Weekly never advances it). */
+  year: SchoolYear;
+}
+
+/** The match log, or an empty one for characters that have never played a week. */
+export function weeklyMatchesOf(character: { weeklyMatches?: WeeklyMatchRecord[] }): WeeklyMatchRecord[] {
+  return character.weeklyMatches ?? [];
+}
+
+export interface WeeklyRecordSummary {
+  played: number;
+  wins: number;
+  losses: number;
+  /** Total AP banked from matches. */
+  apGained: number;
+  /** wins ÷ played, as a 0–1 fraction; 0 when nothing has been played. */
+  winRate: number;
+}
+
+/** Long-run performance totals for the Weekly match log. */
+export function summariseWeeklyMatches(matches: WeeklyMatchRecord[]): WeeklyRecordSummary {
+  const played = matches.length;
+  const wins = matches.filter((m) => m.result === 'win').length;
+  const apGained = matches.reduce((sum, m) => sum + m.apGained, 0);
+  return {
+    played,
+    wins,
+    losses: played - wins,
+    apGained,
+    winRate: played > 0 ? wins / played : 0,
+  };
+}
+
 // ── Player profile (traits, positions, bio) ───────────────────────────────────
 
 export type TraitKind = 'positive' | 'neutral' | 'negative';
@@ -336,6 +426,15 @@ export interface Character {
 
   /** True once the 3rd-year Spring Interhigh has been applied (year shows "Graduate"). */
   graduated?: boolean;
+
+  /**
+   * The level-up system this character uses. Absent until the player commits to
+   * one on the Review step, which then locks it; read it through levelUpModeOf().
+   */
+  levelUpMode?: LevelUpMode;
+
+  /** Weekly system: the append-only match log. Absent on tournament characters. */
+  weeklyMatches?: WeeklyMatchRecord[];
 
   /** Raw pool rolls (nullable until rolled) */
   physicalPool: PhysicalPool;

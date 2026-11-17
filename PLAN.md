@@ -167,8 +167,21 @@ on every change, then re-evaluates every ability's prereqs and AP affordability.
      option lists; a purchase with an outstanding choice blocks buying another copy.
    - Removing an ability that another depends on triggers a **cascade warning**.
 6. **Review / Export** — full sheet; **Print / PDF / Discord-copy / Excel** outputs; JSON export.
-7. **Level-up** (post-creation action) — prompts # teams played → adds AP, rolls `1d20×0.1cm` height growth,
-   unlocks yearly-only abilities, reopens ability spending; recomputes everything.
+7. **Level-up** (post-creation action on the Review screen) — the player picks one of two systems
+   from a dropdown. The choice is **one-way**: committing to a system reverts the character to its
+   pre-level-up state (level-up AP returned, Interhigh height growth undone, school year back to the
+   `1d3` roll, graduation undone, both logs cleared) and then locks the dropdown. Purchased abilities
+   survive the revert, so the AP meter may read over-budget until the player deselects some; any
+   ability whose prereqs no longer hold is auto-pruned as usual.
+   - **Tournament** (default) — the Interhigh arc. Two events per school year, Summer then Spring,
+     each awarding `(2 × Prelim Games) + (3 × National Games)` AP. Spring also rolls `1d20 × 0.1 cm`
+     height growth, advances the school year (unlocking Yearly Only / Not First Year / Third Year
+     abilities) and graduates a 3rd year.
+   - **Weekly** — one record per match played: **Win +2 AP**, **Loss +1 AP**, plus a free-text note
+     the player keeps as their own match reference (never interpreted by the builder). AP only: no
+     height growth, no year advance and no graduation, so Yearly Only abilities stay locked. The
+     append-only match log is shown on the Review screen with the long-run record (W–L, win rate,
+     total AP) and exports to CSV as well as into the Excel, print and Discord outputs.
 
 **Discord export format** — wrapped in a triple-backtick code block: Name, Year, Height, the three Reaches,
 all ten Stats, then each selected ability with its tier/level.

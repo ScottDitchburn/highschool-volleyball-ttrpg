@@ -5,7 +5,15 @@
 
 
 import type { Character, SkillStats, DerivedReaches } from '../types';
-import { SKILL_STAT_NAMES, formatVerticalModifier, positionCodes, profileOf } from '../types';
+import {
+  SKILL_STAT_NAMES,
+  formatVerticalModifier,
+  positionCodes,
+  profileOf,
+  MATCH_RESULT_LABEL,
+  summariseWeeklyMatches,
+  weeklyMatchesOf,
+} from '../types';
 import { traitLabel } from '../data/traits';
 import { ABILITY_MAP } from '../data/abilities';
 import { computeAPBudget } from '../engine/apEngine';
@@ -32,6 +40,8 @@ function yearLabel(y: number): string {
 
 export function PrintSheet({ character, effectiveStats, derived }: Props) {
   const { name, schoolYear, physical, selectedAbilities, levelUpHistory } = character;
+  const weeklyMatches = weeklyMatchesOf(character);
+  const weeklySummary = summariseWeeklyMatches(weeklyMatches);
   const apBudget = computeAPBudget(character); // live spent/remaining
   const effHeightCm = derived?.effectiveHeightCm ?? physical?.heightCm ?? null;
   const heightBonus = physical && effHeightCm !== null ? effHeightCm - physical.heightCm : 0;
@@ -225,6 +235,41 @@ export function PrintSheet({ character, effectiveStats, derived }: Props) {
                       <td style={{ fontFamily: 'monospace', textAlign: 'right' }}>
                         {r.season === 'spring' ? `+${r.heightGainCm.toFixed(1)}` : '—'}
                       </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </section>
+          )}
+
+          {/* Weekly match log */}
+          {weeklyMatches.length > 0 && (
+            <section>
+              <h2 style={{ fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: '#666', borderBottom: '1px solid #ddd', paddingBottom: '3px', marginBottom: '6px' }}>
+                Weekly Match Log
+              </h2>
+              <p style={{ fontSize: '11px', margin: '0 0 6px' }}>
+                <strong>{weeklySummary.wins}W–{weeklySummary.losses}L</strong>
+                {' '}({Math.round(weeklySummary.winRate * 100)}% win rate) over {weeklySummary.played}
+                {weeklySummary.played === 1 ? ' match' : ' matches'} ·{' '}
+                <span style={{ color: '#E8741E', fontWeight: 700 }}>+{weeklySummary.apGained} AP</span>
+              </p>
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '11px' }}>
+                <thead>
+                  <tr>
+                    <th style={{ textAlign: 'left', color: '#888', fontWeight: 600, paddingBottom: '3px', width: '22px' }}>#</th>
+                    <th style={{ textAlign: 'left', color: '#888', fontWeight: 600, paddingBottom: '3px' }}>Result</th>
+                    <th style={{ textAlign: 'right', color: '#888', fontWeight: 600, paddingBottom: '3px' }}>AP</th>
+                    <th style={{ textAlign: 'left', color: '#888', fontWeight: 600, paddingBottom: '3px', paddingLeft: '8px' }}>Note</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {weeklyMatches.map((m, i) => (
+                    <tr key={m.uid}>
+                      <td style={{ paddingBottom: '2px', fontFamily: 'monospace' }}>{i + 1}</td>
+                      <td style={{ paddingBottom: '2px' }}>{MATCH_RESULT_LABEL[m.result]}</td>
+                      <td style={{ fontFamily: 'monospace', textAlign: 'right', color: '#E8741E' }}>+{m.apGained}</td>
+                      <td style={{ paddingLeft: '8px', color: '#444' }}>{m.note}</td>
                     </tr>
                   ))}
                 </tbody>

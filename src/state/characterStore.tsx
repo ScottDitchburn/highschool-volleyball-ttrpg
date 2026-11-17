@@ -24,6 +24,12 @@ import {
   type APBudget,
   type InterhighSeason,
   type LevelUpRecord,
+  type LevelUpMode,
+  type MatchResult,
+  type WeeklyMatchRecord,
+  levelUpModeOf,
+  weeklyMatchAp,
+  rollToHeightCm,
   computeReaches,
   makePhysicalAttributes,
   experienceFromRoll,
@@ -85,6 +91,7 @@ export const INITIAL_CHARACTER: Character = {
   apBudget: DEFAULT_AP_BUDGET,
   selectedAbilities: [],
   levelUpHistory: [],
+  weeklyMatches: [],
   profile: EMPTY_PROFILE,
   seed: null,
   seeded: false,
@@ -110,6 +117,8 @@ export type CharacterAction =
   | { type: 'SET_ABILITY_TIER'; uid: string; tier: number }
   | { type: 'SET_ABILITY_CHOOSER'; uid: string; effectIndex: number; choice: SkillStat | SkillStat[] | string }
   | { type: 'INTERHIGH'; season: InterhighSeason; prelimGames: number; nationalGames: number; heightGainCm: number }
+  | { type: 'SET_LEVEL_UP_MODE'; mode: LevelUpMode }
+  | { type: 'RECORD_WEEKLY_MATCH'; result: MatchResult; note: string }
   | { type: 'START_SEEDED_RUN'; seed: string }
   | { type: 'IMPORT_CHARACTER'; character: Character }
   | { type: 'SET_CLOUD_ID'; cloudId: string | null }
@@ -121,6 +130,42 @@ export type CharacterAction =
 // ---------------------------------------------------------------------------
 // Reducer
 // ---------------------------------------------------------------------------
+
+/**
+ * Roll the character back to the state it was in before any level-up event:
+ * banked level-up AP returned to zero, Interhigh height growth undone (height
+ * recomputed from the original 3d10 roll), school year back to the rolled
+ * starting year, graduation undone and both event logs emptied.
+ *
+ * Purchased abilities are deliberately left alone, so the AP meter may read
+ * over-budget until the player deselects some. Any ability whose prereqs no
+ * longer hold after the year reverts is swept up by the provider's existing
+ * auto-prune pass.
+ */
+function revertLevelUpProgress(state: Character): Character {
+  const baseHeightCm = state.physical ? rollToHeightCm(state.physical.heightRoll) : null;
+  const physical = state.physical && baseHeightCm !== null
+    ? { ...state.physical, heightCm: baseHeightCm }
+    : state.physical;
+  const reaches = physical
+    ? computeReaches(physical.heightCm, physical.verticalCm)
+    : state.reaches;
+  const budget = {
+    ...state.apBudget,
+    levelUpGains: 0,
+    total: state.apBudget.base + state.apBudget.yearBonus + state.apBudget.experienceBonus,
+  };
+  return {
+    ...state,
+    schoolYear: state.yearRoll ?? state.schoolYear,
+    graduated: false,
+    physical,
+    reaches,
+    apBudget: { ...budget, remaining: budget.total - budget.spent },
+    levelUpHistory: [],
+    weeklyMatches: [],
+  };
+}
 
 function baseCharacterReducer(state: Character, action: CharacterAction): Character {
   switch (action.type) {
@@ -165,8 +210,11 @@ function baseCharacterReducer(state: Character, action: CharacterAction): Charac
         apBudget,
         selectedAbilities: [],
         levelUpHistory: [],
+        weeklyMatches: [],
       };
       delete fresh.cloudId;
+      // A fresh character has made no level-up commitment yet.
+      delete fresh.levelUpMode;
       return fresh;
     }
 
@@ -357,6 +405,39 @@ function baseCharacterReducer(state: Character, action: CharacterAction): Charac
         reaches: newReaches,
         apBudget: { ...newBudget, remaining: newBudget.total - newBudget.spent },
         levelUpHistory: [...state.levelUpHistory, record],
+      };
+    }
+
+    // Commit to a level-up system. One-way: the mode is locked afterwards, and
+    // committing wipes every level-up gain so the two systems never mix.
+    case 'SET_LEVEL_UP_MODE': {
+      if (state.levelUpMode === action.mode) return state;
+      return { ...revertLevelUpProgress(state), levelUpMode: action.mode };
+    }
+
+    // Weekly system: one append-only match record. AP only — no height growth,
+    // no year advance, no graduation.
+    case 'RECORD_WEEKLY_MATCH': {
+      if (levelUpModeOf(state) !== 'weekly') return state;
+      const apGained = weeklyMatchAp(action.result);
+      const newLevelGains = state.apBudget.levelUpGains + apGained;
+      const newBudget = {
+        ...state.apBudget,
+        levelUpGains: newLevelGains,
+        total: state.apBudget.base + state.apBudget.yearBonus + state.apBudget.experienceBonus + newLevelGains,
+      };
+      const record: WeeklyMatchRecord = {
+        uid: generateUid(),
+        result: action.result,
+        apGained,
+        note: action.note.trim(),
+        recordedAt: new Date().toISOString(),
+        year: state.schoolYear,
+      };
+      return {
+        ...state,
+        apBudget: { ...newBudget, remaining: newBudget.total - newBudget.spent },
+        weeklyMatches: [...(state.weeklyMatches ?? []), record],
       };
     }
 
